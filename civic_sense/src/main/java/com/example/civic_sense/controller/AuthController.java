@@ -12,7 +12,8 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = {
         "http://localhost:5173",
-        "http://10.208.91.107:5173"
+        "http://10.208.91.107:5173",
+        "https://civic-sense-1-zc52.onrender.com"
 })
 public class AuthController {
 
