@@ -11,6 +11,7 @@ import java.util.List;
 @RequestMapping("/api/users")
 @CrossOrigin(origins = {
         "http://localhost:5173",
+        "http://localhost:5174",
         "http://10.208.91.107:5173",
         "https://civic-sense-1-zc52.onrender.com"
 })

@@ -1,115 +1,192 @@
 /* ==========================================
-   OFFICER PAGE
+   OFFICER DASHBOARD
 ========================================== */
+
+* {
+    box-sizing: border-box;
+}
 
 .officer-page {
     min-height: 100vh;
-    background: #f5f7fb;
-    color: #1f2937;
+    background: #f5f7fa;
+    color: #10213a;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-
 
 /* ==========================================
    HEADER
 ========================================== */
 
 .officer-header {
-    height: 70px;
+    height: 72px;
     background: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e2e7ee;
 
     display: flex;
     align-items: center;
     justify-content: space-between;
 
-    padding: 0 40px;
+    padding: 0 38px;
 
     position: sticky;
     top: 0;
     z-index: 100;
 }
 
-.officer-logo {
-    font-size: 24px;
+.officer-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.officer-brand-mark {
+    width: 35px;
+    height: 35px;
+
+    border-radius: 9px;
+
+    background: #103f91;
+    color: #ffffff;
+
+    display: grid;
+    place-items: center;
+
+    font-size: 11px;
     font-weight: 800;
-    color: #111827;
+}
+
+.officer-logo {
+    color: #10213a;
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.officer-brand-subtitle {
+    margin-top: 4px;
+
+    color: #8996a8;
+
+    font-size: 9px;
+    font-weight: 700;
+
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
 }
 
 .officer-header-right {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 17px;
 }
 
 .officer-user {
-    font-size: 15px;
-    font-weight: 600;
-    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    color: #33445d;
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.officer-user-dot {
+    color: #0aa978;
+    font-size: 10px;
+}
+
+.officer-role {
+    margin-left: 4px;
+
+    padding: 4px 7px;
+
+    border-radius: 5px;
+
+    background: #edf3ff;
+    color: #2459a8;
+
+    font-size: 9px;
+    font-weight: 800;
+
+    letter-spacing: 0.5px;
 }
 
 .officer-logout-btn {
-    border: none;
-    background: #111827;
-    color: white;
+    border: 1px solid #d5dce6;
 
-    padding: 10px 18px;
-    border-radius: 8px;
+    background: #ffffff;
+    color: #26364e;
 
-    font-size: 14px;
-    font-weight: 600;
+    padding: 9px 15px;
+
+    border-radius: 7px;
+
+    font-size: 12px;
+    font-weight: 700;
 
     cursor: pointer;
+
+    transition: 0.2s ease;
 }
 
 .officer-logout-btn:hover {
-    background: #374151;
+    background: #f4f6f9;
+    border-color: #c4ccd8;
 }
-
 
 /* ==========================================
    MAIN
 ========================================== */
 
 .officer-main {
-    max-width: 1400px;
-    margin: auto;
+    max-width: 1500px;
 
-    padding: 35px 25px 60px;
+    margin: 0 auto;
+
+    padding: 30px 36px 55px;
 }
-
 
 /* ==========================================
    WELCOME
 ========================================== */
 
 .officer-welcome {
-    background: #ffffff;
+    margin-bottom: 20px;
+}
 
-    border: 1px solid #e5e7eb;
+.officer-eyebrow {
+    margin-bottom: 7px;
 
-    border-radius: 16px;
+    color: #58708d;
 
-    padding: 30px;
+    font-size: 10px;
+    font-weight: 800;
 
-    margin-bottom: 25px;
+    letter-spacing: 1px;
+
+    text-transform: uppercase;
 }
 
 .officer-welcome h1 {
-    margin: 0 0 8px;
+    margin: 0 0 6px;
 
-    font-size: 30px;
+    color: #0d203a;
 
-    color: #111827;
+    font-size: 29px;
+    line-height: 1.15;
+
+    font-weight: 800;
 }
 
 .officer-welcome p {
     margin: 0;
 
-    color: #6b7280;
+    color: #718097;
 
-    font-size: 16px;
+    font-size: 13px;
 }
-
 
 /* ==========================================
    STATISTICS
@@ -119,41 +196,114 @@
     display: grid;
 
     grid-template-columns:
-        repeat(7, minmax(100px, 1fr));
+        repeat(7, minmax(0, 1fr));
 
-    gap: 12px;
+    gap: 14px;
 
     margin-bottom: 30px;
 }
 
 .officer-stat-card {
+    min-height: 112px;
+
     background: #ffffff;
 
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e0e6ed;
+    border-left: 4px solid #3777e8;
 
-    border-radius: 12px;
+    border-radius: 13px;
 
-    padding: 18px 10px;
+    padding: 17px 17px 14px;
 
-    text-align: center;
+    box-shadow:
+        0 2px 5px rgba(23, 42, 70, 0.04);
 }
 
-.officer-stat-card h2 {
-    margin: 0;
+.stat-label {
+    color: #60738e;
 
-    font-size: 27px;
+    font-size: 10px;
+    font-weight: 800;
 
-    color: #111827;
+    letter-spacing: 0.55px;
 }
 
-.officer-stat-card p {
-    margin: 6px 0 0;
+.stat-value {
+    display: block;
 
-    font-size: 12px;
+    margin-top: 10px;
 
-    color: #6b7280;
+    font-size: 28px;
+    line-height: 1;
+
+    font-weight: 850;
 }
 
+.stat-note {
+    display: block;
+
+    margin-top: 9px;
+
+    color: #8a97a8;
+
+    font-size: 10px;
+}
+
+.stat-total {
+    border-left-color: #345fd1;
+}
+
+.stat-total .stat-value {
+    color: #345fd1;
+}
+
+.stat-pending {
+    border-left-color: #f39a00;
+}
+
+.stat-pending .stat-value {
+    color: #cc7000;
+}
+
+.stat-verified {
+    border-left-color: #3777e8;
+}
+
+.stat-verified .stat-value {
+    color: #2860c9;
+}
+
+.stat-assigned {
+    border-left-color: #8d48e9;
+}
+
+.stat-assigned .stat-value {
+    color: #7b31db;
+}
+
+.stat-progress {
+    border-left-color: #2783ee;
+}
+
+.stat-progress .stat-value {
+    color: #2866d5;
+}
+
+.stat-completed {
+    border-left-color: #d89b18;
+}
+
+.stat-completed .stat-value {
+    color: #a96c00;
+}
+
+.stat-resolved {
+    border-left-color: #0ca879;
+}
+
+.stat-resolved .stat-value {
+    color: #008b65;
+}
 
 /* ==========================================
    COMPLAINT SECTION
@@ -162,96 +312,209 @@
 .officer-complaints {
     background: #ffffff;
 
-    border: 1px solid #e5e7eb;
+    border: 1px solid #dfe5ec;
 
-    border-radius: 16px;
+    border-radius: 15px;
 
-    padding: 28px;
+    overflow: hidden;
+
+    box-shadow:
+        0 2px 7px rgba(25, 48, 80, 0.035);
 }
 
-.officer-section-title {
-    margin-bottom: 22px;
+.officer-section-header {
+    min-height: 96px;
+
+    padding: 22px 25px 18px;
+
+    border-bottom: 1px solid #e1e7ee;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
 }
 
-.officer-section-title h2 {
-    margin: 0 0 5px;
+.officer-section-header h2 {
+    margin: 0 0 4px;
 
-    font-size: 22px;
+    color: #10213a;
 
-    color: #111827;
+    font-size: 19px;
+    font-weight: 800;
 }
 
-.officer-section-title p {
+.officer-section-header p {
     margin: 0;
 
-    color: #6b7280;
+    color: #718097;
 
-    font-size: 14px;
+    font-size: 12px;
 }
 
+/* ==========================================
+   CATEGORY FILTER
+========================================== */
+
+.officer-section-controls {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    flex-shrink: 0;
+}
+
+.officer-category-filter {
+    width: 205px;
+    height: 38px;
+
+    padding: 0 35px 0 12px;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 8px;
+
+    background-color: #ffffff;
+    color: #26364e;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    outline: none;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.officer-category-filter:hover {
+    border-color: #9eacbd;
+}
+
+.officer-category-filter:focus {
+    border-color: #3b73c9;
+
+    box-shadow:
+        0 0 0 3px rgba(59, 115, 201, 0.1);
+}
+
+.officer-category-filter option {
+    background: #ffffff;
+    color: #26364e;
+
+    font-size: 13px;
+}
+
+.officer-section-count {
+    color: #64758c;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    white-space: nowrap;
+}
+
+/* ==========================================
+   LEDGER HEADER
+========================================== */
+
+.officer-ledger-head {
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 2.3fr)
+        minmax(120px, 0.75fr)
+        minmax(160px, 1fr)
+        minmax(130px, 0.8fr);
+
+    gap: 18px;
+
+    padding: 14px 25px;
+
+    background: #f7f9fb;
+
+    border-bottom: 1px solid #dfe5ec;
+
+    color: #50637d;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    letter-spacing: 0.45px;
+}
 
 /* ==========================================
    COMPLAINT LIST
 ========================================== */
 
 .officer-complaint-list {
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 18px;
+    width: 100%;
 }
-
-
-/* ==========================================
-   COMPLAINT CARD
-========================================== */
 
 .officer-complaint-card {
     display: grid;
 
     grid-template-columns:
-        180px 1fr 190px;
+        minmax(0, 2.3fr)
+        minmax(120px, 0.75fr)
+        minmax(160px, 1fr)
+        minmax(130px, 0.8fr);
 
-    gap: 20px;
+    gap: 18px;
 
     align-items: center;
 
-    border: 1px solid #e5e7eb;
-
-    border-radius: 14px;
-
-    padding: 18px;
+    padding: 18px 25px;
 
     background: #ffffff;
+
+    border-bottom: 1px solid #e8edf2;
+}
+
+.officer-complaint-card:last-child {
+    border-bottom: none;
 }
 
 .officer-complaint-card:hover {
-    border-color: #d1d5db;
-
-    box-shadow:
-        0 5px 20px rgba(0, 0, 0, 0.05);
+    background: #fbfcfe;
 }
 
-
 /* ==========================================
-   IMAGE
+   COMPLAINT INFORMATION
 ========================================== */
 
-.officer-image {
-    width: 180px;
-    height: 140px;
+.officer-complaint-main {
+    min-width: 0;
 
-    border-radius: 10px;
+    display: grid;
+
+    grid-template-columns:
+        82px minmax(0, 1fr);
+
+    gap: 14px;
+
+    align-items: center;
+}
+
+.officer-image {
+    width: 82px;
+    height: 67px;
+
+    border-radius: 8px;
 
     overflow: hidden;
 
-    background: #f3f4f6;
+    background: #edf1f5;
+
+    border: 1px solid #e0e6ed;
 
     display: flex;
 
     align-items: center;
-
     justify-content: center;
 }
 
@@ -265,58 +528,74 @@
 }
 
 .no-image {
-    color: #9ca3af;
+    color: #9ba7b6;
 
     text-align: center;
 
-    font-size: 30px;
+    font-size: 13px;
+
+    font-weight: 800;
 }
 
 .no-image span {
     display: block;
-
-    margin-top: 5px;
-
-    font-size: 12px;
 }
 
+.no-image small {
+    display: block;
 
-/* ==========================================
-   INFORMATION
-========================================== */
+    margin-top: 3px;
+
+    font-size: 8px;
+    font-weight: 600;
+}
 
 .officer-info {
     min-width: 0;
 }
 
-.officer-category-row {
+.officer-id-row {
     display: flex;
 
     align-items: center;
 
-    justify-content: space-between;
+    gap: 8px;
 
-    gap: 15px;
-
-    margin-bottom: 9px;
+    margin-bottom: 6px;
 }
 
-.officer-category-row h3 {
-    margin: 0;
+.officer-complaint-id {
+    color: #1456c2;
 
-    font-size: 18px;
+    font-size: 11px;
 
-    color: #111827;
+    font-weight: 800;
 }
 
-.officer-description {
-    margin: 0 0 10px;
+.officer-category {
+    padding: 4px 7px;
 
-    color: #4b5563;
+    border-radius: 4px;
 
-    font-size: 14px;
+    background: #eef2f6;
 
-    line-height: 1.5;
+    color: #4d6079;
+
+    font-size: 9px;
+
+    font-weight: 700;
+}
+
+.officer-info h3 {
+    margin: 0 0 6px;
+
+    color: #17263b;
+
+    font-size: 13px;
+
+    line-height: 1.4;
+
+    font-weight: 750;
 
     display: -webkit-box;
 
@@ -327,90 +606,226 @@
     overflow: hidden;
 }
 
-.officer-location,
-.officer-date,
-.officer-citizen,
+.officer-location {
+    margin: 0;
+
+    color: #718097;
+
+    font-size: 10px;
+
+    line-height: 1.4;
+
+    white-space: nowrap;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+}
+
+.location-pin {
+    margin-right: 5px;
+
+    color: #74879f;
+
+    font-size: 8px;
+}
+
+.officer-meta-row {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 12px;
+
+    margin-top: 5px;
+
+    color: #9aa5b3;
+
+    font-size: 9px;
+}
+
 .officer-contractor {
-    margin: 5px 0;
+    margin: 5px 0 0;
 
-    font-size: 13px;
+    color: #315b92;
 
-    color: #6b7280;
+    font-size: 9px;
+
+    font-weight: 700;
 }
-
-.officer-citizen {
-    color: #374151;
-}
-
-.officer-contractor {
-    color: #1d4ed8;
-
-    font-weight: 600;
-}
-
 
 /* ==========================================
    STATUS
 ========================================== */
 
+.officer-status-column,
+.officer-contractor-column,
+.officer-actions {
+    min-width: 0;
+}
+
 .officer-status {
     display: inline-flex;
 
-    padding: 5px 10px;
+    padding: 6px 9px;
 
-    border-radius: 20px;
+    border-radius: 999px;
 
-    font-size: 10px;
+    font-size: 9px;
 
-    font-weight: 700;
+    font-weight: 800;
+
+    line-height: 1;
 
     text-transform: uppercase;
 
     white-space: nowrap;
+
+    border: 1px solid transparent;
 }
 
 .officer-status.pending {
-    background: #fff7ed;
+    background: #fff5df;
+    color: #b56b00;
 
-    color: #c2410c;
+    border-color: #ffd98a;
 }
 
 .officer-status.verified {
-    background: #eff6ff;
+    background: #eef5ff;
+    color: #2363c6;
 
-    color: #1d4ed8;
+    border-color: #a9d4ff;
 }
 
 .officer-status.assigned {
-    background: #f5f3ff;
+    background: #f5efff;
+    color: #7334b8;
 
-    color: #6d28d9;
+    border-color: #d7b9ff;
 }
 
 .officer-status.in-progress {
-    background: #eff6ff;
+    background: #edf9ff;
+    color: #0678ad;
 
-    color: #1d4ed8;
+    border-color: #9bdfff;
 }
 
 .officer-status.completed {
-    background: #fef3c7;
+    background: #fff7dc;
+    color: #9a6a00;
 
-    color: #92400e;
+    border-color: #f1d98b;
 }
 
 .officer-status.resolved {
-    background: #ecfdf5;
+    background: #eafaf3;
+    color: #087c5b;
 
-    color: #047857;
+    border-color: #9bdcbc;
 }
 
 .officer-status.unknown {
-    background: #f3f4f6;
+    background: #f2f4f6;
+    color: #66758a;
 
-    color: #6b7280;
+    border-color: #d8dee5;
 }
 
+/* WAITING / RESOLVED */
+
+.waiting-label,
+.resolved-label {
+    display: block;
+
+    width: fit-content;
+
+    margin-top: 8px;
+
+    padding: 5px 7px;
+
+    border-radius: 5px;
+
+    font-size: 9px;
+
+    font-weight: 700;
+}
+
+.waiting-label {
+    background: #f2f5f8;
+    color: #718096;
+}
+
+.resolved-label {
+    background: #eaf9f3;
+    color: #087c5b;
+}
+
+/* ==========================================
+   CONTRACTOR
+========================================== */
+
+.officer-contractor-column {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 7px;
+}
+
+.contractor-display strong {
+    display: block;
+
+    color: #1d3554;
+
+    font-size: 12px;
+
+    line-height: 1.3;
+}
+
+.contractor-display span {
+    display: block;
+
+    margin-top: 3px;
+
+    color: #7b8a9d;
+
+    font-size: 10px;
+}
+
+.contractor-empty {
+    color: #9aa6b5;
+
+    font-size: 10px;
+}
+
+.contractor-select {
+    width: 100%;
+
+    padding: 8px 9px;
+
+    border: 1px solid #cfd7e2;
+
+    border-radius: 7px;
+
+    background: #ffffff;
+
+    color: #34465f;
+
+    font-size: 11px;
+
+    outline: none;
+
+    cursor: pointer;
+}
+
+.contractor-select:focus {
+    border-color: #4c83d9;
+
+    box-shadow:
+        0 0 0 2px rgba(76, 131, 217, 0.1);
+}
 
 /* ==========================================
    ACTIONS
@@ -421,23 +836,25 @@
 
     flex-direction: column;
 
-    gap: 9px;
+    gap: 7px;
 }
 
 .officer-actions button {
     width: 100%;
 
-    border: none;
+    border-radius: 7px;
 
-    border-radius: 8px;
+    padding: 9px 10px;
 
-    padding: 10px 12px;
+    font-size: 10px;
 
-    font-size: 13px;
-
-    font-weight: 700;
+    font-weight: 800;
 
     cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .officer-actions button:disabled {
@@ -446,161 +863,105 @@
     cursor: not-allowed;
 }
 
-
-/* ==========================================
-   VERIFY
-========================================== */
+/* VERIFY */
 
 .verify-btn {
-    background: #2563eb;
+    border: 1px solid #c6d7f7;
 
-    color: white;
+    background: #edf4ff;
+
+    color: #245eae;
 }
 
 .verify-btn:hover:not(:disabled) {
-    background: #1d4ed8;
+    background: #e1edff;
 }
 
-
-/* ==========================================
-   CONTRACTOR SELECT
-========================================== */
-
-.contractor-select {
-    width: 100%;
-
-    padding: 10px;
-
-    border: 1px solid #d1d5db;
-
-    border-radius: 8px;
-
-    background: white;
-
-    color: #374151;
-
-    font-size: 13px;
-
-    outline: none;
-}
-
-.contractor-select:focus {
-    border-color: #2563eb;
-}
-
-
-/* ==========================================
-   ASSIGN
-========================================== */
+/* ASSIGN */
 
 .assign-btn {
-    background: #7c3aed;
+    border: 1px solid #d4b9f7;
 
-    color: white;
+    background: #f4edff;
+
+    color: #6f35b5;
 }
 
 .assign-btn:hover:not(:disabled) {
-    background: #6d28d9;
+    background: #ebe0ff;
 }
 
-
-/* ==========================================
-   RESOLVE
-========================================== */
+/* RESOLVE */
 
 .resolve-btn {
-    background: #059669;
+    border: 1px solid #a9dcc8;
 
-    color: white;
+    background: #eaf9f3;
+
+    color: #087c5b;
 }
 
 .resolve-btn:hover:not(:disabled) {
-    background: #047857;
+    background: #dff4eb;
 }
 
-
-/* ==========================================
-   DETAILS
-========================================== */
+/* DETAILS */
 
 .details-btn {
-    background: #f3f4f6;
+    border: 1px solid #ccd6e2;
 
-    color: #374151;
+    background: #ffffff;
+
+    color: #29415f;
 }
 
 .details-btn:hover {
-    background: #e5e7eb;
-}
+    background: #f3f6f9;
 
+    border-color: #b7c3d2;
+}
 
 /* ==========================================
-   WAITING / RESOLVED
-========================================== */
-
-.waiting-label {
-    text-align: center;
-
-    padding: 10px;
-
-    border-radius: 8px;
-
-    background: #f3f4f6;
-
-    color: #6b7280;
-
-    font-size: 12px;
-
-    font-weight: 600;
-}
-
-.resolved-label {
-    text-align: center;
-
-    padding: 10px;
-
-    border-radius: 8px;
-
-    background: #ecfdf5;
-
-    color: #047857;
-
-    font-size: 13px;
-
-    font-weight: 700;
-}
-
-
-/* ==========================================
-   EMPTY
+   EMPTY / ERROR
 ========================================== */
 
 .officer-empty {
     text-align: center;
 
-    padding: 60px 20px;
+    padding: 70px 20px;
 
-    color: #6b7280;
+    color: #748196;
 }
 
 .officer-empty h3 {
-    margin: 10px 0;
+    margin: 12px 0 4px;
 
-    color: #374151;
+    color: #31425a;
+
+    font-size: 15px;
 }
 
-.officer-error {
-    color: #dc2626;
-}
+.officer-empty p {
+    margin: 0;
 
-.officer-error h3 {
-    color: #b91c1c;
+    font-size: 12px;
 }
 
 .empty-icon {
-    font-size: 45px;
+    color: #a1adbb;
+
+    font-size: 30px;
+
+    font-weight: 800;
 }
 
+.officer-error {
+    color: #b83226;
+}
+
+.officer-error h3 {
+    color: #b83226;
+}
 
 /* ==========================================
    IMAGE MODAL
@@ -613,7 +974,7 @@
 
     z-index: 1000;
 
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(8, 18, 32, 0.78);
 
     display: flex;
 
@@ -621,13 +982,13 @@
 
     justify-content: center;
 
-    padding: 20px;
+    padding: 25px;
 }
 
 .officer-modal-content {
     position: relative;
 
-    max-width: 900px;
+    max-width: 920px;
 
     max-height: 90vh;
 }
@@ -640,92 +1001,104 @@
     border-radius: 10px;
 
     display: block;
+
+    box-shadow:
+        0 18px 50px rgba(0, 0, 0, 0.35);
 }
 
 .officer-modal-close {
     position: absolute;
 
-    right: -15px;
+    right: -13px;
+    top: -13px;
 
-    top: -15px;
-
-    width: 36px;
-
-    height: 36px;
+    width: 34px;
+    height: 34px;
 
     border: none;
 
     border-radius: 50%;
 
-    background: white;
+    background: #ffffff;
 
-    color: #111827;
+    color: #17263b;
 
-    font-size: 25px;
+    font-size: 23px;
 
     cursor: pointer;
-}
 
+    box-shadow:
+        0 3px 12px rgba(0, 0, 0, 0.2);
+}
 
 /* ==========================================
    RESPONSIVE
 ========================================== */
 
-@media (max-width: 1200px) {
+@media (max-width: 1250px) {
 
     .officer-stats {
         grid-template-columns:
-            repeat(4, 1fr);
+            repeat(4, minmax(0, 1fr));
+    }
+
+    .officer-ledger-head,
+    .officer-complaint-card {
+        grid-template-columns:
+            minmax(0, 2fr)
+            minmax(110px, 0.75fr)
+            minmax(140px, 1fr)
+            minmax(115px, 0.8fr);
+    }
+}
+
+@media (max-width: 1000px) {
+
+    .officer-main {
+        padding: 25px 22px 45px;
+    }
+
+    .officer-ledger-head {
+        display: none;
     }
 
     .officer-complaint-card {
         grid-template-columns:
-            160px 1fr 170px;
+            1fr 150px;
     }
 
-    .officer-image {
-        width: 160px;
-    }
-}
-
-
-@media (max-width: 850px) {
-
-    .officer-complaint-card {
-        grid-template-columns: 1fr;
+    .officer-complaint-main {
+        grid-column: 1;
     }
 
-    .officer-image {
-        width: 100%;
-        height: 200px;
+    .officer-status-column {
+        grid-column: 2;
+    }
+
+    .officer-contractor-column {
+        grid-column: 1;
     }
 
     .officer-actions {
-        width: 100%;
+        grid-column: 2;
     }
 }
 
-
-@media (max-width: 600px) {
+@media (max-width: 760px) {
 
     .officer-header {
+        height: 66px;
+
         padding: 0 18px;
     }
 
-    .officer-logo {
-        font-size: 20px;
-    }
-
+    .officer-brand-subtitle,
     .officer-user {
         display: none;
     }
 
     .officer-main {
-        padding: 20px 15px 40px;
-    }
-
-    .officer-welcome {
-        padding: 22px;
+        padding: 22px 14px 40px;
     }
 
     .officer-welcome h1 {
@@ -734,16 +1107,147 @@
 
     .officer-stats {
         grid-template-columns:
-            repeat(2, 1fr);
+            repeat(2, minmax(0, 1fr));
+
+        gap: 10px;
     }
 
-    .officer-complaints {
-        padding: 18px 12px;
+    .officer-stat-card {
+        min-height: 100px;
+
+        padding: 14px;
     }
 
-    .officer-category-row {
+    .stat-value {
+        font-size: 25px;
+    }
+
+    .officer-section-header {
         align-items: flex-start;
 
         flex-direction: column;
+
+        padding: 18px;
     }
+
+    .officer-section-controls {
+        width: 100%;
+    }
+
+    .officer-category-filter {
+        flex: 1;
+
+        width: 100%;
+
+        min-width: 0;
+    }
+
+    .officer-complaint-card {
+        grid-template-columns: 1fr;
+
+        padding: 17px;
+    }
+
+    .officer-complaint-main,
+    .officer-status-column,
+    .officer-contractor-column,
+    .officer-actions {
+        grid-column: auto;
+    }
+
+    .officer-complaint-main {
+        grid-template-columns:
+            72px minmax(0, 1fr);
+    }
+
+    .officer-image {
+        width: 72px;
+        height: 62px;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .officer-header {
+        padding: 0 13px;
+    }
+
+    .officer-logo {
+        font-size: 17px;
+    }
+
+    .officer-logout-btn {
+        padding: 8px 11px;
+    }
+
+    .officer-stats {
+        grid-template-columns:
+            1fr 1fr;
+    }
+
+    .stat-note {
+        white-space: normal;
+    }
+
+    .officer-id-row {
+        align-items: flex-start;
+
+        flex-direction: column;
+
+        gap: 5px;
+    }
+
+    .officer-meta-row {
+        flex-direction: column;
+
+        gap: 3px;
+    }
+
+    .officer-section-controls {
+        flex-direction: column;
+
+        align-items: stretch;
+    }
+
+    .officer-section-count {
+        text-align: left;
+    }
+}
+
+
+.officer-photo-wrapper {
+    width: 82px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 6px;
+}
+
+.photo-details-btn {
+    width: 100%;
+
+    padding: 6px 4px;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 6px;
+
+    background: #ffffff;
+
+    color: #2459a8;
+
+    font-size: 9px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+}
+
+.photo-details-btn:hover {
+    background: #edf4ff;
+
+    border-color: #9dbce9;
 }

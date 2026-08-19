@@ -20,6 +20,10 @@ function Officer() {
     const [selectedContractors, setSelectedContractors] =
         useState({});
 
+    // CATEGORY FILTER
+    const [selectedCategory, setSelectedCategory] =
+        useState("ALL");
+
     const [updatingId, setUpdatingId] = useState(null);
 
     const [selectedImage, setSelectedImage] =
@@ -365,6 +369,54 @@ function Officer() {
         ).length;
 
     // =====================================================
+    // CATEGORY FILTER
+    // =====================================================
+
+    const categoryOptions = [
+        {
+            value: "Road Damage",
+            label: "Road Damage",
+        },
+        {
+            value: "Garbage",
+            label: "Garbage / Waste",
+        },
+        {
+            value: "Street Light",
+            label: "Street Light",
+        },
+        {
+            value: "Water Leakage",
+            label: "Water Leakage",
+        },
+        {
+            value: "Drainage",
+            label: "Drainage Problem",
+        },
+        {
+            value: "Illegal Dumping",
+            label: "Illegal Dumping",
+        },
+        {
+            value: "Public Property Damage",
+            label: "Public Property Damage",
+        },
+        {
+            value: "Other",
+            label: "Other",
+        },
+    ];
+
+    const filteredComplaints =
+        selectedCategory === "ALL"
+            ? complaints
+            : complaints.filter(
+                (complaint) =>
+                    complaint.category ===
+                    selectedCategory
+            );
+
+    // =====================================================
     // FORMAT LOCATION
     // =====================================================
 
@@ -418,21 +470,42 @@ function Officer() {
     return (
         <div className="officer-page">
 
-            {/* =================================================
-                HEADER
-            ================================================= */}
+            {/* HEADER */}
 
             <header className="officer-header">
 
-                <div className="officer-logo">
-                    CivicProof
+                <div className="officer-brand">
+
+                    <div className="officer-brand-mark">
+                        CP
+                    </div>
+
+                    <div>
+                        <div className="officer-logo">
+                            CivicProof
+                        </div>
+
+                        <div className="officer-brand-subtitle">
+                            Municipal Operations
+                        </div>
+                    </div>
+
                 </div>
 
                 <div className="officer-header-right">
 
                     <span className="officer-user">
-                        🧑‍💼{" "}
+
+                        <span className="officer-user-dot">
+                            ●
+                        </span>
+
                         {user?.name || "Officer"}
+
+                        <span className="officer-role">
+                            OFFICER
+                        </span>
+
                     </span>
 
                     <button
@@ -446,106 +519,201 @@ function Officer() {
 
             </header>
 
-            {/* =================================================
-                MAIN
-            ================================================= */}
+            {/* MAIN */}
 
             <main className="officer-main">
 
-                {/* =================================================
-                    WELCOME
-                ================================================= */}
+                {/* WELCOME */}
 
                 <section className="officer-welcome">
 
-                    <div>
-                        <h1>
-                            Officer Dashboard
-                        </h1>
-
-                        <p>
-                            Verify complaints, assign
-                            contractors and confirm
-                            completed work.
-                        </p>
+                    <div className="officer-eyebrow">
+                        OPERATIONS OVERVIEW
                     </div>
+
+                    <h1>
+                        Officer Dashboard
+                    </h1>
+
+                    <p>
+                        Verify complaints, assign
+                        contractors and confirm
+                        completed work.
+                    </p>
 
                 </section>
 
-                {/* =================================================
-                    STATISTICS
-                ================================================= */}
+                {/* STATISTICS */}
 
                 <section className="officer-stats">
 
-                    <div className="officer-stat-card">
-                        <h2>
+                    <div className="officer-stat-card stat-total">
+
+                        <span className="stat-label">
+                            TOTAL COMPLAINTS
+                        </span>
+
+                        <strong className="stat-value">
                             {totalComplaints}
-                        </h2>
-                        <p>Total</p>
+                        </strong>
+
+                        <span className="stat-note">
+                            All reported issues
+                        </span>
+
                     </div>
 
-                    <div className="officer-stat-card">
-                        <h2>
+                    <div className="officer-stat-card stat-pending">
+
+                        <span className="stat-label">
+                            PENDING TRIAGE
+                        </span>
+
+                        <strong className="stat-value">
                             {pendingComplaints}
-                        </h2>
-                        <p>Pending</p>
+                        </strong>
+
+                        <span className="stat-note">
+                            Awaiting verification
+                        </span>
+
                     </div>
 
-                    <div className="officer-stat-card">
-                        <h2>
+                    <div className="officer-stat-card stat-verified">
+
+                        <span className="stat-label">
+                            VERIFIED
+                        </span>
+
+                        <strong className="stat-value">
                             {verifiedComplaints}
-                        </h2>
-                        <p>Verified</p>
+                        </strong>
+
+                        <span className="stat-note">
+                            Ready for dispatch
+                        </span>
+
                     </div>
 
-                    <div className="officer-stat-card">
-                        <h2>
+                    <div className="officer-stat-card stat-assigned">
+
+                        <span className="stat-label">
+                            ASSIGNED
+                        </span>
+
+                        <strong className="stat-value">
                             {assignedComplaints}
-                        </h2>
-                        <p>Assigned</p>
+                        </strong>
+
+                        <span className="stat-note">
+                            Contractor assigned
+                        </span>
+
                     </div>
 
-                    <div className="officer-stat-card">
-                        <h2>
+                    <div className="officer-stat-card stat-progress">
+
+                        <span className="stat-label">
+                            ACTIVE REPAIRS
+                        </span>
+
+                        <strong className="stat-value">
                             {inProgressComplaints}
-                        </h2>
-                        <p>In Progress</p>
+                        </strong>
+
+                        <span className="stat-note">
+                            Contractors working
+                        </span>
+
                     </div>
 
-                    <div className="officer-stat-card">
-                        <h2>
+                    <div className="officer-stat-card stat-completed">
+
+                        <span className="stat-label">
+                            COMPLETED
+                        </span>
+
+                        <strong className="stat-value">
                             {completedComplaints}
-                        </h2>
-                        <p>Completed</p>
+                        </strong>
+
+                        <span className="stat-note">
+                            Awaiting confirmation
+                        </span>
+
                     </div>
 
-                    <div className="officer-stat-card">
-                        <h2>
+                    <div className="officer-stat-card stat-resolved">
+
+                        <span className="stat-label">
+                            RESOLVED
+                        </span>
+
+                        <strong className="stat-value">
                             {resolvedComplaints}
-                        </h2>
-                        <p>Resolved</p>
+                        </strong>
+
+                        <span className="stat-note">
+                            Closed complaints
+                        </span>
+
                     </div>
 
                 </section>
 
-                {/* =================================================
-                    COMPLAINTS
-                ================================================= */}
+                {/* COMPLAINTS */}
 
                 <section className="officer-complaints">
 
-                    <div className="officer-section-title">
+                    <div className="officer-section-header">
 
                         <div>
+
+                            <div className="officer-eyebrow">
+                                FIELD OPERATIONS
+                            </div>
+
                             <h2>
-                                Complaint Management
+                                Municipal Complaint Triage
+                                &amp; Dispatch Ledger
                             </h2>
 
                             <p>
                                 Review and manage civic
                                 complaints.
                             </p>
+
+                        </div>
+
+                        {/* CATEGORY FILTER */}
+
+                        <div className="officer-section-controls">
+
+                            <select
+                                className="officer-category-filter"
+                                value={selectedCategory}
+                                onChange={(event) =>
+                                    setSelectedCategory(event.target.value)
+                                }
+                            >
+                                <option value="ALL">
+                                    All Categories
+                                </option>
+
+                                {categoryOptions.map((category) => (
+                                    <option
+                                        key={category.value}
+                                        value={category.value}
+                                    >
+                                        {category.label}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <span className="officer-section-count">
+                                {filteredComplaints.length} reports
+                            </span>
+
                         </div>
 
                     </div>
@@ -554,9 +722,15 @@ function Officer() {
 
                     {loading && (
                         <div className="officer-empty">
+
+                            <div className="empty-icon">
+                                ◌
+                            </div>
+
                             <h3>
                                 Loading complaints...
                             </h3>
+
                         </div>
                     )}
 
@@ -564,6 +738,11 @@ function Officer() {
 
                     {!loading && error && (
                         <div className="officer-empty officer-error">
+
+                            <div className="empty-icon">
+                                !
+                            </div>
+
                             <h3>
                                 Unable to load dashboard
                             </h3>
@@ -571,6 +750,7 @@ function Officer() {
                             <p>
                                 {error}
                             </p>
+
                         </div>
                     )}
 
@@ -578,29 +758,58 @@ function Officer() {
 
                     {!loading &&
                         !error &&
-                        complaints.length === 0 && (
+                        filteredComplaints.length === 0 && (
+
                             <div className="officer-empty">
 
                                 <div className="empty-icon">
-                                    📋
+                                    □
                                 </div>
 
                                 <h3>
-                                    No complaints found
+                                    {selectedCategory ===
+                                    "ALL"
+                                        ? "No complaints found"
+                                        : `No ${selectedCategory} complaints found`}
                                 </h3>
 
                             </div>
                         )}
 
-                    {/* COMPLAINTS */}
+                    {/* COMPLAINT LIST */}
 
                     {!loading &&
                         !error &&
-                        complaints.length > 0 && (
+                        filteredComplaints.length > 0 && (
 
                             <div className="officer-complaint-list">
 
-                                {complaints.map(
+                                {/* TABLE HEADER */}
+
+                                <div className="officer-ledger-head">
+
+                                    <div>
+                                        COMPLAINT &amp;
+                                        LOCATION
+                                    </div>
+
+                                    <div>
+                                        STATUS
+                                    </div>
+
+                                    <div>
+                                        ASSIGNED CONTRACTOR
+                                    </div>
+
+                                    <div>
+                                        ACTIONS
+                                    </div>
+
+                                </div>
+
+                                {/* COMPLAINTS */}
+
+                                {filteredComplaints.map(
                                     (complaint) => (
 
                                         <div
@@ -610,155 +819,192 @@ function Officer() {
                                             }
                                         >
 
-                                            {/* IMAGE */}
+                                            {/* COMPLAINT INFORMATION */}
 
-                                            <div className="officer-image">
+                                            <div className="officer-complaint-main">
 
-                                                {complaint.mediaUrl ? (
-                                                    <img
-                                                        src={
-                                                            complaint.mediaUrl
-                                                        }
-                                                        alt={
-                                                            complaint.category ||
-                                                            "Complaint"
-                                                        }
+                                                {/* IMAGE */}
+
+                                                <div className="officer-photo-wrapper">
+
+                                                    <div className="officer-image">
+
+                                                        {complaint.mediaUrl ? (
+                                                            <img
+                                                                src={complaint.mediaUrl}
+                                                                alt={
+                                                                    complaint.category ||
+                                                                    "Complaint"
+                                                                }
+                                                                onClick={() =>
+                                                                    setSelectedImage(
+                                                                        complaint.mediaUrl
+                                                                    )
+                                                                }
+                                                                onError={handleImageError}
+                                                            />
+                                                        ) : (
+                                                            <div className="no-image">
+                                                                <span>IMG</span>
+                                                                <small>No image</small>
+                                                            </div>
+                                                        )}
+
+                                                    </div>
+
+                                                    <button
+                                                        className="photo-details-btn"
                                                         onClick={() =>
-                                                            setSelectedImage(
-                                                                complaint.mediaUrl
+                                                            navigate(
+                                                                `/report/${complaint.id}`
                                                             )
                                                         }
-                                                        onError={
-                                                            handleImageError
-                                                        }
-                                                    />
-                                                ) : (
-                                                    <div className="no-image">
-                                                        📷
-                                                        <span>
-                                                            No image
+                                                    >
+                                                        View Details
+                                                    </button>
+
+                                                </div>
+                                                {/* INFORMATION */}
+
+                                                <div className="officer-info">
+
+                                                    <div className="officer-id-row">
+
+                                                        <span className="officer-complaint-id">
+                                                            CS-
+                                                            {String(
+                                                                complaint.id
+                                                            ).padStart(
+                                                                4,
+                                                                "0"
+                                                            )}
                                                         </span>
+
+                                                        <span className="officer-category">
+                                                            {complaint.category ||
+                                                                "Civic Issue"}
+                                                        </span>
+
                                                     </div>
-                                                )}
-
-                                            </div>
-
-                                            {/* INFORMATION */}
-
-                                            <div className="officer-info">
-
-                                                <div className="officer-category-row">
 
                                                     <h3>
-                                                        {complaint.category ||
-                                                            "Civic Issue"}
+                                                        {complaint.description ||
+                                                            "No description provided."}
                                                     </h3>
 
-                                                    <span
-                                                        className={`officer-status ${getStatusClass(
-                                                            complaint.status
-                                                        )}`}
-                                                    >
-                                                        {complaint.status ||
-                                                            "UNKNOWN"}
-                                                    </span>
+                                                    <p className="officer-location">
+
+                                                        <span className="location-pin">
+                                                            ●
+                                                        </span>
+
+                                                        {complaint.address ? (
+                                                            complaint.address
+                                                        ) : (
+                                                            <>
+                                                                {formatCoordinate(
+                                                                    complaint.latitude
+                                                                )}
+
+                                                                {", "}
+
+                                                                {formatCoordinate(
+                                                                    complaint.longitude
+                                                                )}
+                                                            </>
+                                                        )}
+
+                                                    </p>
+
+                                                    <div className="officer-meta-row">
+
+                                                        <span>
+                                                            Reported:{" "}
+                                                            {complaint.capturedAt
+                                                                ? new Date(
+                                                                      complaint.capturedAt
+                                                                  ).toLocaleString()
+                                                                : "Unknown"}
+                                                        </span>
+
+                                                        {complaint.user && (
+                                                            <span>
+                                                                Citizen:{" "}
+                                                                {complaint
+                                                                    .user
+                                                                    .name ||
+                                                                    complaint
+                                                                        .user
+                                                                        .email ||
+                                                                    "Citizen"}
+                                                            </span>
+                                                        )}
+
+                                                    </div>
+
+                                                    {complaint.contractor && (
+                                                        <p className="officer-contractor">
+
+                                                            Contractor:{" "}
+
+                                                            {complaint
+                                                                .contractor
+                                                                .name ||
+                                                                complaint
+                                                                    .contractor
+                                                                    .email}
+
+                                                        </p>
+                                                    )}
 
                                                 </div>
 
-                                                <p className="officer-description">
+                                            </div>
 
-                                                    {complaint.description ||
-                                                        "No description provided."}
+                                            {/* STATUS */}
 
-                                                </p>
+                                            <div className="officer-status-column">
 
-                                                <p className="officer-location">
+                                                <span
+                                                    className={`officer-status ${getStatusClass(
+                                                        complaint.status
+                                                    )}`}
+                                                >
+                                                    {complaint.status ||
+                                                        "UNKNOWN"}
+                                                </span>
 
-                                                    📍{" "}
+                                                {complaint.status ===
+                                                    "IN_PROGRESS" && (
 
-                                                    {complaint.address ? (
-                                                        complaint.address
-                                                    ) : (
-                                                        <>
-                                                            {formatCoordinate(
-                                                                complaint.latitude
-                                                            )}
+                                                    <span className="waiting-label">
+                                                        Contractor working
+                                                    </span>
 
-                                                            {", "}
-
-                                                            {formatCoordinate(
-                                                                complaint.longitude
-                                                            )}
-                                                        </>
-                                                    )}
-
-                                                </p>
-
-                                                <p className="officer-date">
-
-                                                    Reported:{" "}
-
-                                                    {complaint.capturedAt
-                                                        ? new Date(
-                                                              complaint.capturedAt
-                                                          ).toLocaleString()
-                                                        : "Unknown"}
-
-                                                </p>
-
-                                                {complaint.user && (
-                                                    <p className="officer-citizen">
-                                                        👤 Citizen:{" "}
-                                                        {complaint.user.name ||
-                                                            complaint.user.email ||
-                                                            "Citizen"}
-                                                    </p>
                                                 )}
 
-                                                {complaint.contractor && (
-                                                    <p className="officer-contractor">
-                                                        👷 Contractor:{" "}
-                                                        {complaint.contractor.name ||
-                                                            complaint.contractor.email}
-                                                    </p>
+                                                
+
+                                                {complaint.status ===
+                                                    "RESOLVED" && (
+
+                                                    <span className="resolved-label">
+                                                        ✓ Resolved
+                                                    </span>
+
                                                 )}
 
                                             </div>
 
-                                            {/* ACTIONS */}
+                                            {/* CONTRACTOR */}
 
-                                            <div className="officer-actions">
-
-                                                {/* PENDING */}
+                                            <div className="officer-contractor-column">
 
                                                 {complaint.status ===
-                                                    "PENDING" && (
-
-                                                    <button
-                                                        className="verify-btn"
-                                                        disabled={
-                                                            updatingId ===
-                                                            complaint.id
-                                                        }
-                                                        onClick={() =>
-                                                            verifyComplaint(
-                                                                complaint.id
-                                                            )
-                                                        }
-                                                    >
-                                                        {updatingId ===
-                                                        complaint.id
-                                                            ? "Updating..."
-                                                            : "Verify Complaint"}
-                                                    </button>
-                                                )}
-
-                                                {/* VERIFIED */}
-
-                                                {complaint.status ===
-                                                    "VERIFIED" && (
+                                                "VERIFIED" ? (
 
                                                     <>
+
                                                         <select
                                                             className="contractor-select"
                                                             value={
@@ -787,6 +1033,7 @@ function Officer() {
                                                                 (
                                                                     contractor
                                                                 ) => (
+
                                                                     <option
                                                                         key={
                                                                             contractor.id
@@ -799,6 +1046,7 @@ function Officer() {
                                                                             contractor.name
                                                                         }
                                                                     </option>
+
                                                                 )
                                                             )}
 
@@ -821,10 +1069,64 @@ function Officer() {
                                                                 ? "Assigning..."
                                                                 : "Assign Contractor"}
                                                         </button>
+
                                                     </>
+
+                                                ) : complaint.contractor ? (
+
+                                                    <div className="contractor-display">
+
+                                                        <strong>
+                                                            {complaint
+                                                                .contractor
+                                                                .name ||
+                                                                complaint
+                                                                    .contractor
+                                                                    .email}
+                                                        </strong>
+
+                                                        <span>
+                                                            Assigned contractor
+                                                        </span>
+
+                                                    </div>
+
+                                                ) : (
+
+                                                    <span className="contractor-empty">
+                                                        Not assigned
+                                                    </span>
+
                                                 )}
 
-                                                {/* COMPLETED */}
+                                            </div>
+
+                                            {/* ACTIONS */}
+
+                                            <div className="officer-actions">
+
+                                                {complaint.status ===
+                                                    "PENDING" && (
+
+                                                    <button
+                                                        className="verify-btn"
+                                                        disabled={
+                                                            updatingId ===
+                                                            complaint.id
+                                                        }
+                                                        onClick={() =>
+                                                            verifyComplaint(
+                                                                complaint.id
+                                                            )
+                                                        }
+                                                    >
+                                                        {updatingId ===
+                                                        complaint.id
+                                                            ? "Updating..."
+                                                            : "Verify Complaint"}
+                                                    </button>
+
+                                                )}
 
                                                 {complaint.status ===
                                                     "COMPLETED" && (
@@ -846,37 +1148,7 @@ function Officer() {
                                                             ? "Resolving..."
                                                             : "Confirm & Resolve"}
                                                     </button>
-                                                )}
 
-                                                {/* IN PROGRESS */}
-
-                                                {complaint.status ===
-                                                    "IN_PROGRESS" && (
-
-                                                    <span className="waiting-label">
-                                                        ⏳ Contractor
-                                                        working
-                                                    </span>
-                                                )}
-
-                                                {/* ASSIGNED */}
-
-                                                {complaint.status ===
-                                                    "ASSIGNED" && (
-
-                                                    <span className="waiting-label">
-                                                        👷 Assigned
-                                                    </span>
-                                                )}
-
-                                                {/* RESOLVED */}
-
-                                                {complaint.status ===
-                                                    "RESOLVED" && (
-
-                                                    <span className="resolved-label">
-                                                        ✓ Resolved
-                                                    </span>
                                                 )}
 
                                                 <button
@@ -887,12 +1159,13 @@ function Officer() {
                                                         )
                                                     }
                                                 >
-                                                    View Details
+                                                    Inspect Dossier
                                                 </button>
 
                                             </div>
 
                                         </div>
+
                                     )
                                 )}
 
@@ -903,9 +1176,7 @@ function Officer() {
 
             </main>
 
-            {/* =================================================
-                IMAGE MODAL
-            ================================================= */}
+            {/* IMAGE MODAL */}
 
             {selectedImage && (
 
@@ -941,6 +1212,7 @@ function Officer() {
                     </div>
 
                 </div>
+
             )}
 
         </div>

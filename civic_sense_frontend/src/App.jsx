@@ -7,6 +7,7 @@ import Officer from "./pages/Officer";
 import Contractor from "./pages/Contractor";
 import Complaint from "./pages/Complaint";
 import NearbyComplaints from "./pages/NearbyComplaints";
+import ReportDetails from "./pages/ReportDetails";
 
 function App() {
     return (
@@ -28,6 +29,10 @@ function App() {
                 <Route
                     path="/nearby-complaints"
                     element={<NearbyComplaints />}
+                />
+                <Route
+                    path="/report/:id"
+                    element={<ReportDetails />}
                 />
 
             </Routes>
