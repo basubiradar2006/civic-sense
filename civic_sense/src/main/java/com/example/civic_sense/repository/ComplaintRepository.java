@@ -9,5 +9,9 @@ import java.util.List;
 public interface ComplaintRepository
         extends JpaRepository<Complaint, Long> {
 
+    // Complaints created by a citizen
     List<Complaint> findByUser(User user);
+
+    // Complaints assigned to a contractor
+    List<Complaint> findByContractor(User contractor);
 }

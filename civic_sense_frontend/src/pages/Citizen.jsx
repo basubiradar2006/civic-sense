@@ -443,14 +443,12 @@ function Citizen() {
                                                 </p>
 
                                                 <p className="report-location">
-                                                    📍{" "}
-                                                    {formatCoordinate(
-                                                        report.latitude
-                                                    )}
-                                                    {", "}
-                                                    {formatCoordinate(
-                                                        report.longitude
-                                                    )}
+                                                    📍 {report.address || "Address not available"}
+                                                </p>
+
+                                                <p className="report-coordinates">
+                                                    {formatCoordinate(report.latitude)},{" "}
+                                                    {formatCoordinate(report.longitude)}
                                                 </p>
 
                                                 <p className="report-date">
@@ -516,6 +514,12 @@ function Citizen() {
                     </div>
                 </div>
             )}
+            <button
+                className="nearby-btn"
+                onClick={() => navigate("/nearby-complaints")}
+            >
+                📍 See Nearby Complaints
+            </button>
         </div>
     );
 }

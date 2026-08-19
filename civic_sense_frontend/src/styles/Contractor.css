@@ -1,0 +1,739 @@
+/* ==========================================
+   CONTRACTOR PAGE
+========================================== */
+
+.contractor-page {
+    min-height: 100vh;
+    background: #f5f7fb;
+    color: #1f2937;
+}
+
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.contractor-header {
+    height: 70px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 40px;
+
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.contractor-logo {
+    font-size: 24px;
+    font-weight: 800;
+    color: #111827;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.contractor-user {
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.contractor-logout-btn {
+    border: none;
+    background: #111827;
+    color: white;
+
+    padding: 10px 18px;
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+.contractor-logout-btn:hover {
+    background: #374151;
+}
+
+
+/* ==========================================
+   MAIN
+========================================== */
+
+.contractor-main {
+    max-width: 1250px;
+    margin: auto;
+    padding: 35px 25px 60px;
+}
+
+
+/* ==========================================
+   WELCOME
+========================================== */
+
+.contractor-welcome {
+    background: #ffffff;
+    border-radius: 16px;
+
+    padding: 30px;
+
+    margin-bottom: 25px;
+
+    border: 1px solid #e5e7eb;
+}
+
+.welcome-content h1 {
+    margin: 0 0 8px;
+
+    font-size: 30px;
+    font-weight: 800;
+    color: #111827;
+}
+
+.welcome-content p {
+    margin: 0;
+
+    color: #6b7280;
+    font-size: 16px;
+}
+
+
+/* ==========================================
+   STATISTICS
+========================================== */
+
+.contractor-stats {
+    display: grid;
+
+    grid-template-columns: repeat(4, 1fr);
+
+    gap: 18px;
+
+    margin-bottom: 30px;
+}
+
+.contractor-stat-card {
+    background: #ffffff;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 14px;
+
+    padding: 25px;
+
+    text-align: center;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.contractor-stat-card h2 {
+    margin: 0;
+
+    font-size: 32px;
+    font-weight: 800;
+
+    color: #111827;
+}
+
+.contractor-stat-card p {
+    margin: 7px 0 0;
+
+    font-size: 14px;
+
+    color: #6b7280;
+}
+
+
+/* ==========================================
+   PROJECT SECTION
+========================================== */
+
+.contractor-projects {
+    background: #ffffff;
+
+    border-radius: 16px;
+
+    border: 1px solid #e5e7eb;
+
+    padding: 28px;
+}
+
+.contractor-section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    margin-bottom: 22px;
+}
+
+.contractor-section-title h2 {
+    margin: 0 0 5px;
+
+    font-size: 22px;
+    color: #111827;
+}
+
+.contractor-section-title p {
+    margin: 0;
+
+    color: #6b7280;
+
+    font-size: 14px;
+}
+
+
+/* ==========================================
+   PROJECT LIST
+========================================== */
+
+.contractor-project-list {
+    display: flex;
+    flex-direction: column;
+
+    gap: 18px;
+}
+
+
+/* ==========================================
+   PROJECT CARD
+========================================== */
+
+.contractor-project-card {
+    display: grid;
+
+    grid-template-columns: 180px 1fr auto;
+
+    gap: 22px;
+
+    align-items: center;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 14px;
+
+    padding: 18px;
+
+    background: #ffffff;
+
+    transition: 0.2s;
+}
+
+.contractor-project-card:hover {
+    border-color: #d1d5db;
+
+    box-shadow:
+        0 5px 20px rgba(0, 0, 0, 0.06);
+}
+
+
+/* ==========================================
+   IMAGE
+========================================== */
+
+.contractor-project-image {
+    width: 180px;
+    height: 135px;
+
+    border-radius: 10px;
+
+    overflow: hidden;
+
+    background: #f3f4f6;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.contractor-project-image img {
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    cursor: pointer;
+
+    transition: transform 0.2s;
+}
+
+.contractor-project-image img:hover {
+    transform: scale(1.04);
+}
+
+.contractor-no-image {
+    text-align: center;
+    color: #9ca3af;
+}
+
+.contractor-no-image span {
+    font-size: 30px;
+}
+
+.contractor-no-image p {
+    margin: 5px 0 0;
+
+    font-size: 12px;
+}
+
+
+/* ==========================================
+   PROJECT INFO
+========================================== */
+
+.contractor-project-info {
+    min-width: 0;
+}
+
+.contractor-category-row {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 15px;
+
+    margin-bottom: 8px;
+}
+
+.contractor-category-row h3 {
+    margin: 0;
+
+    font-size: 18px;
+
+    color: #111827;
+}
+
+
+/* ==========================================
+   STATUS
+========================================== */
+
+.contractor-status {
+    display: inline-flex;
+
+    align-items: center;
+
+    padding: 5px 10px;
+
+    border-radius: 20px;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    text-transform: uppercase;
+
+    white-space: nowrap;
+}
+
+.contractor-status.assigned,
+.contractor-status.pending {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.contractor-status.in-progress {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.contractor-status.resolved,
+.contractor-status.completed {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.contractor-status.rejected {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.contractor-status.unknown {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+
+/* ==========================================
+   DESCRIPTION
+========================================== */
+
+.contractor-description {
+    margin: 0 0 10px;
+
+    color: #4b5563;
+
+    font-size: 14px;
+
+    line-height: 1.5;
+
+    display: -webkit-box;
+
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+
+    overflow: hidden;
+}
+
+
+/* ==========================================
+   LOCATION / DATE / CITIZEN
+========================================== */
+
+.contractor-location,
+.contractor-date,
+.contractor-citizen {
+    margin: 5px 0;
+
+    color: #6b7280;
+
+    font-size: 13px;
+}
+
+.contractor-citizen {
+    color: #374151;
+
+    font-weight: 500;
+}
+
+
+/* ==========================================
+   ACTIONS
+========================================== */
+
+.contractor-project-actions {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 9px;
+
+    min-width: 145px;
+}
+
+.contractor-project-actions button {
+    border: none;
+
+    padding: 10px 15px;
+
+    border-radius: 8px;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+.contractor-project-actions button:disabled {
+    opacity: 0.6;
+
+    cursor: not-allowed;
+}
+
+
+/* START WORK */
+
+.action-start {
+    background: #2563eb;
+
+    color: white;
+}
+
+.action-start:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+
+/* COMPLETE */
+
+.action-complete {
+    background: #059669;
+
+    color: white;
+}
+
+.action-complete:hover:not(:disabled) {
+    background: #047857;
+}
+
+
+/* VIEW */
+
+.action-view,
+.action-details {
+    background: #f3f4f6;
+
+    color: #374151;
+}
+
+.action-view:hover,
+.action-details:hover {
+    background: #e5e7eb;
+}
+
+
+/* ==========================================
+   COMPLETED
+========================================== */
+
+.completed-label {
+    text-align: center;
+
+    padding: 10px;
+
+    border-radius: 8px;
+
+    background: #ecfdf5;
+
+    color: #047857;
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+
+/* ==========================================
+   EMPTY
+========================================== */
+
+.contractor-empty {
+    text-align: center;
+
+    padding: 60px 20px;
+
+    color: #6b7280;
+}
+
+.contractor-empty h3 {
+    margin: 10px 0;
+
+    color: #374151;
+
+    font-size: 18px;
+}
+
+.contractor-empty p {
+    margin: 0;
+
+    font-size: 14px;
+}
+
+.empty-icon {
+    font-size: 45px;
+}
+
+.contractor-error {
+    color: #dc2626;
+}
+
+.contractor-error h3 {
+    color: #b91c1c;
+}
+
+
+/* ==========================================
+   IMAGE ERROR
+========================================== */
+
+.image-error {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: #9ca3af;
+
+    font-size: 13px;
+}
+
+
+/* ==========================================
+   IMAGE MODAL
+========================================== */
+
+.contractor-image-modal {
+    position: fixed;
+
+    inset: 0;
+
+    background: rgba(0, 0, 0, 0.75);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 20px;
+
+    z-index: 1000;
+}
+
+.contractor-image-modal-content {
+    position: relative;
+
+    max-width: 900px;
+    max-height: 90vh;
+}
+
+.contractor-modal-image {
+    max-width: 100%;
+
+    max-height: 85vh;
+
+    display: block;
+
+    border-radius: 10px;
+
+    object-fit: contain;
+}
+
+.contractor-image-modal-close {
+    position: absolute;
+
+    right: -15px;
+    top: -15px;
+
+    width: 36px;
+    height: 36px;
+
+    border: none;
+
+    border-radius: 50%;
+
+    background: #ffffff;
+
+    color: #111827;
+
+    font-size: 25px;
+
+    line-height: 1;
+
+    cursor: pointer;
+
+    z-index: 2;
+}
+
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1000px) {
+
+    .contractor-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .contractor-project-card {
+        grid-template-columns: 150px 1fr;
+    }
+
+    .contractor-project-image {
+        width: 150px;
+        height: 120px;
+    }
+
+    .contractor-project-actions {
+        grid-column: 1 / -1;
+
+        flex-direction: row;
+
+        justify-content: flex-end;
+    }
+}
+
+
+@media (max-width: 650px) {
+
+    .contractor-header {
+        padding: 0 18px;
+    }
+
+    .contractor-logo {
+        font-size: 20px;
+    }
+
+    .contractor-user {
+        display: none;
+    }
+
+    .contractor-main {
+        padding: 20px 15px 40px;
+    }
+
+    .contractor-welcome {
+        padding: 22px;
+    }
+
+    .welcome-content h1 {
+        font-size: 24px;
+    }
+
+    .contractor-stats {
+        grid-template-columns: 1fr 1fr;
+
+        gap: 10px;
+    }
+
+    .contractor-stat-card {
+        padding: 18px 10px;
+    }
+
+    .contractor-stat-card h2 {
+        font-size: 26px;
+    }
+
+    .contractor-projects {
+        padding: 18px 12px;
+    }
+
+    .contractor-project-card {
+        grid-template-columns: 1fr;
+
+        gap: 15px;
+    }
+
+    .contractor-project-image {
+        width: 100%;
+        height: 200px;
+    }
+
+    .contractor-category-row {
+        align-items: flex-start;
+
+        flex-direction: column;
+
+        gap: 8px;
+    }
+
+    .contractor-project-actions {
+        grid-column: auto;
+
+        width: 100%;
+
+        flex-direction: column;
+    }
+
+    .contractor-project-actions button {
+        width: 100%;
+    }
+}

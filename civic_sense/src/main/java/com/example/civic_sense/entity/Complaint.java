@@ -33,7 +33,7 @@ public class Complaint {
     // IMAGE / VIDEO
     private String mediaType;
 
-    // PENDING / VERIFIED / ASSIGNED / IN_PROGRESS / COMPLETED / RESOLVED
+    // PENDING / ACCEPTED / IN_PROGRESS / SOLVED
     private String status;
 
     // LOW / MEDIUM / HIGH
@@ -42,13 +42,32 @@ public class Complaint {
     // Time when evidence was captured
     private String capturedAt;
 
-    // Citizen who created the complaint
+    // =====================================================
+    // CITIZEN WHO CREATED THE COMPLAINT
+    // =====================================================
+
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    // =====================================================
+    // CONTRACTOR ASSIGNED TO THE COMPLAINT
+    // =====================================================
+
+    @ManyToOne
+    @JoinColumn(name = "contractor_id")
+    private User contractor;
+
+    // =====================================================
+    // CONSTRUCTOR
+    // =====================================================
+
     public Complaint() {
     }
+
+    // =====================================================
+    // GETTERS AND SETTERS
+    // =====================================================
 
     public Long getId() {
         return id;
@@ -142,11 +161,27 @@ public class Complaint {
         this.capturedAt = capturedAt;
     }
 
+    // =====================================================
+    // CITIZEN
+    // =====================================================
+
     public User getUser() {
         return user;
     }
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    // =====================================================
+    // CONTRACTOR
+    // =====================================================
+
+    public User getContractor() {
+        return contractor;
+    }
+
+    public void setContractor(User contractor) {
+        this.contractor = contractor;
     }
 }

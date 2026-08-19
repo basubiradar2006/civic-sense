@@ -1,12 +1,16 @@
 package com.example.civic_sense.controller;
 
+import com.example.civic_sense.dto.NearbyComplaintResponse;
 import com.example.civic_sense.entity.Complaint;
+import com.example.civic_sense.entity.Role;
 import com.example.civic_sense.entity.User;
 import com.example.civic_sense.repository.ComplaintRepository;
+import com.example.civic_sense.repository.LikeRepository;
 import com.example.civic_sense.repository.UserRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -20,13 +24,16 @@ public class ComplaintController {
 
     private final ComplaintRepository complaintRepository;
     private final UserRepository userRepository;
+    private final LikeRepository likeRepository;
 
     public ComplaintController(
             ComplaintRepository complaintRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            LikeRepository likeRepository) {
 
         this.complaintRepository = complaintRepository;
         this.userRepository = userRepository;
+        this.likeRepository = likeRepository;
     }
 
 
@@ -39,19 +46,16 @@ public class ComplaintController {
             @RequestBody Complaint complaint,
             Principal principal) {
 
-        // Get logged-in user's email from JWT
         String email = principal.getName();
 
-        // Find logged-in user
         User user = userRepository
                 .findByEmail(email)
                 .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
-        // Attach logged-in user to complaint
         complaint.setUser(user);
 
-        // Every new complaint MUST start as PENDING
+        // Every new complaint starts as PENDING
         complaint.setStatus("PENDING");
 
         // Default priority
@@ -61,16 +65,16 @@ public class ComplaintController {
             complaint.setPriority("MEDIUM");
         }
 
-        // Save complaint
+        // No contractor initially
+        complaint.setContractor(null);
+
         return complaintRepository.save(complaint);
     }
 
 
     // =====================================================
-    // GET ALL PUBLIC COMPLAINTS
+    // GET ALL COMPLAINTS
     // =====================================================
-    // Citizens can use this to see complaints in their
-    // area. Later we can filter by GPS distance.
 
     @GetMapping
     public List<Complaint> getComplaints() {
@@ -87,17 +91,35 @@ public class ComplaintController {
     public List<Complaint> getMyComplaints(
             Principal principal) {
 
-        // Get logged-in user's email
         String email = principal.getName();
 
-        // Find user
         User user = userRepository
                 .findByEmail(email)
                 .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
-        // Return only this user's complaints
         return complaintRepository.findByUser(user);
+    }
+
+
+    // =====================================================
+    // GET CONTRACTOR ASSIGNED COMPLAINTS
+    // =====================================================
+
+    @GetMapping("/assigned")
+    public List<Complaint> getAssignedComplaints(
+            Principal principal) {
+
+        String email = principal.getName();
+
+        User contractor = userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Contractor not found"));
+
+        return complaintRepository
+                .findByContractor(contractor);
     }
 
 
@@ -112,62 +134,422 @@ public class ComplaintController {
         return complaintRepository
                 .findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Complaint not found"));
+                        new RuntimeException(
+                                "Complaint not found"));
     }
 
 
     // =====================================================
-    // ACCEPT COMPLAINT
+    // VERIFY COMPLAINT
+    // PENDING → VERIFIED
     // =====================================================
-    // PENDING → ACCEPTED
 
-    @PutMapping("/{id}/accept")
-    public Complaint acceptComplaint(
+    @PutMapping("/{id}/verify")
+    public Complaint verifyComplaint(
             @PathVariable Long id) {
 
         Complaint complaint = complaintRepository
                 .findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Complaint not found"));
+                        new RuntimeException(
+                                "Complaint not found"));
 
-        // Only PENDING complaints can be accepted
-        if (!"PENDING".equals(complaint.getStatus())) {
+        if (!"PENDING".equals(
+                complaint.getStatus())) {
 
             throw new RuntimeException(
-                    "Only PENDING complaints can be accepted"
-            );
+                    "Only PENDING complaints can be verified");
         }
 
-        complaint.setStatus("ACCEPTED");
+        complaint.setStatus("VERIFIED");
 
         return complaintRepository.save(complaint);
     }
 
 
     // =====================================================
-    // SOLVE COMPLAINT
+    // ASSIGN CONTRACTOR
+    // VERIFIED → ASSIGNED
     // =====================================================
-    // ACCEPTED → SOLVED
 
-    @PutMapping("/{id}/solve")
-    public Complaint solveComplaint(
+    @PutMapping("/{complaintId}/assign/{contractorId}")
+    public Complaint assignContractor(
+            @PathVariable Long complaintId,
+            @PathVariable Long contractorId) {
+
+        Complaint complaint = complaintRepository
+                .findById(complaintId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Complaint not found"));
+
+        User contractor = userRepository
+                .findById(contractorId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Contractor not found"));
+
+        // Make sure selected user is actually contractor
+        if (contractor.getRole() != Role.CONTRACTOR) {
+
+            throw new RuntimeException(
+                    "Selected user is not a contractor");
+        }
+
+        // Only VERIFIED complaints can be assigned
+        if (!"VERIFIED".equals(
+                complaint.getStatus())) {
+
+            throw new RuntimeException(
+                    "Only VERIFIED complaints can be assigned");
+        }
+
+        complaint.setContractor(contractor);
+
+        complaint.setStatus("ASSIGNED");
+
+        return complaintRepository.save(complaint);
+    }
+
+
+    // =====================================================
+    // START WORK
+    // ASSIGNED → IN_PROGRESS
+    // =====================================================
+
+    @PutMapping("/{id}/start")
+    public Complaint startComplaint(
+            @PathVariable Long id,
+            Principal principal) {
+
+        Complaint complaint = complaintRepository
+                .findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Complaint not found"));
+
+        String email = principal.getName();
+
+        User contractor = userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Contractor not found"));
+
+        // Check contractor assignment
+        if (complaint.getContractor() == null ||
+                !complaint.getContractor()
+                        .getId()
+                        .equals(contractor.getId())) {
+
+            throw new RuntimeException(
+                    "This complaint is not assigned to you");
+        }
+
+        // Only ASSIGNED complaints can be started
+        if (!"ASSIGNED".equals(
+                complaint.getStatus())) {
+
+            throw new RuntimeException(
+                    "Only ASSIGNED complaints can be started");
+        }
+
+        complaint.setStatus("IN_PROGRESS");
+
+        return complaintRepository.save(complaint);
+    }
+
+
+    // =====================================================
+    // COMPLETE WORK
+    // IN_PROGRESS → COMPLETED
+    // =====================================================
+
+    @PutMapping("/{id}/complete")
+    public Complaint completeComplaint(
+            @PathVariable Long id,
+            Principal principal) {
+
+        Complaint complaint = complaintRepository
+                .findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Complaint not found"));
+
+        String email = principal.getName();
+
+        User contractor = userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Contractor not found"));
+
+        // Check contractor assignment
+        if (complaint.getContractor() == null ||
+                !complaint.getContractor()
+                        .getId()
+                        .equals(contractor.getId())) {
+
+            throw new RuntimeException(
+                    "This complaint is not assigned to you");
+        }
+
+        // Only IN_PROGRESS can be completed
+        if (!"IN_PROGRESS".equals(
+                complaint.getStatus())) {
+
+            throw new RuntimeException(
+                    "Only IN_PROGRESS complaints can be completed");
+        }
+
+        complaint.setStatus("COMPLETED");
+
+        return complaintRepository.save(complaint);
+    }
+
+
+    // =====================================================
+    // RESOLVE COMPLAINT
+    // COMPLETED → RESOLVED
+    // =====================================================
+
+    @PutMapping("/{id}/resolve")
+    public Complaint resolveComplaint(
             @PathVariable Long id) {
 
         Complaint complaint = complaintRepository
                 .findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Complaint not found"));
+                        new RuntimeException(
+                                "Complaint not found"));
 
-        // Only ACCEPTED complaints can be solved
-        if (!"ACCEPTED".equals(complaint.getStatus())) {
+        // Only COMPLETED complaints can be resolved
+        if (!"COMPLETED".equals(
+                complaint.getStatus())) {
 
             throw new RuntimeException(
-                    "Only ACCEPTED complaints can be solved"
-            );
+                    "Only COMPLETED complaints can be resolved");
         }
 
-        complaint.setStatus("SOLVED");
+        complaint.setStatus("RESOLVED");
 
         return complaintRepository.save(complaint);
+    }
+
+
+    // =====================================================
+    // GET NEARBY COMPLAINTS
+    // =====================================================
+    //
+    // Example:
+    //
+    // GET /api/complaints/nearby
+    // ?latitude=12.9786
+    // &longitude=77.364
+    // &radius=5
+    //
+    // radius = kilometers
+    //
+    // =====================================================
+
+    @GetMapping("/nearby")
+    public List<NearbyComplaintResponse> getNearbyComplaints(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @RequestParam(defaultValue = "5") double radius,
+            Principal principal) {
+
+        // -------------------------------------------------
+        // Get current logged-in user
+        // -------------------------------------------------
+
+        User currentUser = null;
+
+        if (principal != null) {
+
+            String email = principal.getName();
+
+            currentUser = userRepository
+                    .findByEmail(email)
+                    .orElse(null);
+        }
+
+
+        // -------------------------------------------------
+        // Get all complaints
+        // -------------------------------------------------
+
+        List<Complaint> allComplaints =
+                complaintRepository.findAll();
+
+
+        // -------------------------------------------------
+        // Store nearby complaints
+        // -------------------------------------------------
+
+        List<NearbyComplaintResponse> nearbyComplaints =
+                new ArrayList<>();
+
+
+        // -------------------------------------------------
+        // Check every complaint
+        // -------------------------------------------------
+
+        for (Complaint complaint : allComplaints) {
+
+            // Skip complaints without location
+            if (complaint.getLatitude() == null ||
+                    complaint.getLongitude() == null) {
+
+                continue;
+            }
+
+
+            // -------------------------------------------------
+            // Calculate distance
+            // -------------------------------------------------
+
+            double distance = calculateDistance(
+                    latitude,
+                    longitude,
+                    complaint.getLatitude(),
+                    complaint.getLongitude()
+            );
+
+
+            // -------------------------------------------------
+            // Check radius
+            // -------------------------------------------------
+
+            if (distance <= radius) {
+
+
+                // -------------------------------------------------
+                // Get like count
+                // -------------------------------------------------
+
+                long likeCount =
+                        likeRepository.countByComplaint(
+                                complaint
+                        );
+
+
+                // -------------------------------------------------
+                // Check if current user liked it
+                // -------------------------------------------------
+
+                boolean liked = false;
+
+                if (currentUser != null) {
+
+                    liked =
+                            likeRepository
+                                    .existsByUserAndComplaint(
+                                            currentUser,
+                                            complaint
+                                    );
+                }
+
+
+                // -------------------------------------------------
+                // Create DTO
+                // -------------------------------------------------
+
+                NearbyComplaintResponse response =
+                        new NearbyComplaintResponse(
+
+                                complaint.getId(),
+
+                                complaint.getCategory(),
+
+                                complaint.getDescription(),
+
+                                complaint.getLatitude(),
+
+                                complaint.getLongitude(),
+
+                                complaint.getAddress(),
+
+                                complaint.getMediaUrl(),
+
+                                complaint.getMediaType(),
+
+                                complaint.getStatus(),
+
+                                complaint.getPriority(),
+
+                                complaint.getCapturedAt(),
+
+                                distance,
+
+                                likeCount,
+
+                                liked
+                        );
+
+
+                nearbyComplaints.add(response);
+            }
+        }
+
+
+        // -------------------------------------------------
+        // Sort nearest complaints first
+        // -------------------------------------------------
+
+        nearbyComplaints.sort(
+                (a, b) ->
+                        Double.compare(
+                                a.getDistance(),
+                                b.getDistance()
+                        )
+        );
+
+
+        return nearbyComplaints;
+    }
+
+
+    // =====================================================
+    // HAVERSINE DISTANCE CALCULATION
+    // =====================================================
+
+    private double calculateDistance(
+            double lat1,
+            double lon1,
+            double lat2,
+            double lon2) {
+
+        final double EARTH_RADIUS_KM = 6371.0;
+
+
+        double latDistance =
+                Math.toRadians(lat2 - lat1);
+
+        double lonDistance =
+                Math.toRadians(lon2 - lon1);
+
+
+        double a =
+                Math.sin(latDistance / 2)
+                        * Math.sin(latDistance / 2)
+
+                        +
+
+                        Math.cos(Math.toRadians(lat1))
+                                * Math.cos(Math.toRadians(lat2))
+
+                                * Math.sin(lonDistance / 2)
+                                * Math.sin(lonDistance / 2);
+
+
+        double c =
+                2 * Math.atan2(
+                        Math.sqrt(a),
+                        Math.sqrt(1 - a)
+                );
+
+
+        return EARTH_RADIUS_KM * c;
     }
 }
