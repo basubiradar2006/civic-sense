@@ -14,4 +14,5 @@ public interface ComplaintRepository
 
     // Complaints assigned to a contractor
     List<Complaint> findByContractor(User contractor);
+    List<Complaint> findTop10ByOrderByIdDesc();
 }

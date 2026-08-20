@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Register.css";
 
-const API_URL=import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL;
 
 function Register() {
 
@@ -63,87 +63,233 @@ function Register() {
     };
 
     return (
-        <div className="register-container">
+        <div className="register-page">
 
-            <div className="register-card">
+            {/* BRANDING */}
+            <div className="register-brand">
 
-                <h1>CivicProof</h1>
+                <div className="register-brand-icon">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                    >
+                        <path d="M12 3 5 6v5c0 4.5 2.8 8.4 7 10 4.2-1.6 7-5.5 7-10V6l-7-3Z" />
+                    </svg>
+                </div>
 
-                <p className="register-subtitle">
-                    Create your account
+                <h1>CivicSense</h1>
+
+                <p>
+                    Civic Complaint &amp; Accountability Platform
                 </p>
 
-                <form onSubmit={handleRegister}>
+            </div>
 
-                    <label>Name</label>
 
-                    <input
-                        type="text"
-                        placeholder="Enter your name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                    />
+            {/* REGISTER CARD */}
+            <div className="register-card">
 
-                    <label>Email</label>
-
-                    <input
-                        type="email"
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
-
-                    <label>Password</label>
-
-                    <input
-                        type="password"
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-
-                    <label>Role</label>
-
-                    <select
-                        value={role}
-                        onChange={(e) => setRole(e.target.value)}
-                    >
-                        <option value="CITIZEN">Citizen</option>
-                        <option value="OFFICER">Officer</option>
-                        <option value="CONTRACTOR">Contractor</option>
-                    </select>
-
-                    {error && (
-                        <p className="register-error">
-                            {error}
-                        </p>
-                    )}
+                {/* TABS */}
+                <div className="register-tabs">
 
                     <button
+                        type="button"
+                        className="register-tab"
+                        onClick={() => navigate("/")}
+                    >
+                        Log In
+                    </button>
+
+                    <button
+                        type="button"
+                        className="register-tab active"
+                    >
+                        Register as Citizen
+                    </button>
+
+                </div>
+
+
+                {/* FORM */}
+                <form onSubmit={handleRegister}>
+
+                    {/* NAME */}
+                    <div className="register-input-group">
+
+                        <label htmlFor="name">
+                            Full Name
+                        </label>
+
+                        <div className="register-input-wrapper">
+
+                            <span className="register-input-icon">
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                >
+                                    <circle
+                                        cx="12"
+                                        cy="8"
+                                        r="3.2"
+                                    />
+
+                                    <path d="M5.5 20c.7-3.4 2.9-5.2 6.5-5.2s5.8 1.8 6.5 5.2" />
+                                </svg>
+                            </span>
+
+                            <input
+                                id="name"
+                                type="text"
+                                placeholder="e.g. Rohan Deshmukh"
+                                value={name}
+                                onChange={(e) =>
+                                    setName(e.target.value)
+                                }
+                                required
+                            />
+
+                        </div>
+
+                    </div>
+
+
+                    {/* EMAIL */}
+                    <div className="register-input-group">
+
+                        <label htmlFor="email">
+                            Email Address
+                        </label>
+
+                        <div className="register-input-wrapper">
+
+                            <span className="register-input-icon">
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                >
+                                    <rect
+                                        x="3"
+                                        y="5"
+                                        width="18"
+                                        height="14"
+                                        rx="2"
+                                    />
+
+                                    <path d="m3 7 9 6 9-6" />
+                                </svg>
+                            </span>
+
+                            <input
+                                id="email"
+                                type="email"
+                                placeholder="you@example.com"
+                                value={email}
+                                onChange={(e) =>
+                                    setEmail(e.target.value)
+                                }
+                                required
+                            />
+
+                        </div>
+
+                    </div>
+
+
+                    {/* PASSWORD */}
+                    <div className="register-input-group">
+
+                        <label htmlFor="password">
+                            Password
+                        </label>
+
+                        <div className="register-input-wrapper">
+
+                            <span className="register-input-icon">
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                >
+                                    <rect
+                                        x="5"
+                                        y="10"
+                                        width="14"
+                                        height="10"
+                                        rx="2"
+                                    />
+
+                                    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                                </svg>
+                            </span>
+
+                            <input
+                                id="password"
+                                type="password"
+                                placeholder="Enter your password"
+                                value={password}
+                                onChange={(e) =>
+                                    setPassword(e.target.value)
+                                }
+                                required
+                            />
+
+                        </div>
+
+                    </div>
+
+
+                    {/* ERROR */}
+                    {error && (
+                        <div className="register-error">
+
+                            <span className="register-error-icon">
+                                !
+                            </span>
+
+                            <span>
+                                {error}
+                            </span>
+
+                        </div>
+                    )}
+
+
+                    {/* REGISTER BUTTON */}
+                    <button
                         type="submit"
+                        className="register-button"
                         disabled={loading}
                     >
+
                         {loading
-                            ? "Creating account..."
-                            : "Register"
+                            ? (
+                                <>
+                                    <span className="register-spinner"></span>
+                                    Creating account...
+                                </>
+                            )
+                            : "Create Citizen Account"
                         }
+
                     </button>
 
                 </form>
 
-                <p className="register-login">
-                    Already have an account?
+            </div>
 
-                    <button
-                        onClick={() => navigate("/")}
-                    >
-                        Login
-                    </button>
-                </p>
 
+            {/* FOOTER */}
+            <div className="register-footer">
+                <span>Secured by Supabase Auth</span>
+                <span>•</span>
+                <span>Role-based access control</span>
             </div>
 
         </div>

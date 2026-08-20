@@ -40,7 +40,9 @@ public class AuthController {
 
             return ResponseEntity
                     .badRequest()
-                    .body(e.getMessage());
+                    .body(Map.of(
+                            "message", e.getMessage()
+                    ));
         }
     }
 
@@ -60,7 +62,9 @@ public class AuthController {
 
             return ResponseEntity
                     .badRequest()
-                    .body(e.getMessage());
+                    .body(Map.of(
+                            "message", e.getMessage()
+                    ));
         }
     }
 }

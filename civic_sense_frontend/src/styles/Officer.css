@@ -8,11 +8,21 @@
 
 .officer-page {
     min-height: 100vh;
+
     background: #f5f7fa;
+
     color: #10213a;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system,
-        BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
 }
+
 
 /* ==========================================
    HEADER
@@ -20,46 +30,61 @@
 
 .officer-header {
     height: 72px;
+
     background: #ffffff;
+
     border-bottom: 1px solid #e2e7ee;
 
     display: flex;
+
     align-items: center;
+
     justify-content: space-between;
 
     padding: 0 38px;
 
     position: sticky;
+
     top: 0;
+
     z-index: 100;
 }
 
 .officer-brand {
     display: flex;
+
     align-items: center;
+
     gap: 11px;
 }
 
 .officer-brand-mark {
     width: 35px;
+
     height: 35px;
 
     border-radius: 9px;
 
     background: #103f91;
+
     color: #ffffff;
 
     display: grid;
+
     place-items: center;
 
     font-size: 11px;
+
     font-weight: 800;
 }
 
 .officer-logo {
     color: #10213a;
+
     font-size: 19px;
+
     font-weight: 800;
+
     line-height: 1;
 }
 
@@ -69,31 +94,39 @@
     color: #8996a8;
 
     font-size: 9px;
+
     font-weight: 700;
 
     letter-spacing: 0.8px;
+
     text-transform: uppercase;
 }
 
 .officer-header-right {
     display: flex;
+
     align-items: center;
+
     gap: 17px;
 }
 
 .officer-user {
     display: flex;
+
     align-items: center;
+
     gap: 7px;
 
     color: #33445d;
 
     font-size: 13px;
+
     font-weight: 700;
 }
 
 .officer-user-dot {
     color: #0aa978;
+
     font-size: 10px;
 }
 
@@ -105,25 +138,29 @@
     border-radius: 5px;
 
     background: #edf3ff;
+
     color: #2459a8;
 
     font-size: 9px;
+
     font-weight: 800;
 
     letter-spacing: 0.5px;
 }
 
 .officer-logout-btn {
-    border: 1px solid #d5dce6;
+    border: 1px solid #111827;
 
-    background: #ffffff;
-    color: #26364e;
+    background: #100f0f;
+
+    color: #ffffff;
 
     padding: 9px 15px;
 
     border-radius: 7px;
 
     font-size: 12px;
+
     font-weight: 700;
 
     cursor: pointer;
@@ -132,9 +169,11 @@
 }
 
 .officer-logout-btn:hover {
-    background: #f4f6f9;
-    border-color: #c4ccd8;
+    background: #000000;
+
+    border-color: #000000;
 }
+
 
 /* ==========================================
    MAIN
@@ -147,6 +186,7 @@
 
     padding: 30px 36px 55px;
 }
+
 
 /* ==========================================
    WELCOME
@@ -162,6 +202,7 @@
     color: #58708d;
 
     font-size: 10px;
+
     font-weight: 800;
 
     letter-spacing: 1px;
@@ -175,6 +216,7 @@
     color: #0d203a;
 
     font-size: 29px;
+
     line-height: 1.15;
 
     font-weight: 800;
@@ -187,6 +229,7 @@
 
     font-size: 13px;
 }
+
 
 /* ==========================================
    STATISTICS
@@ -209,6 +252,7 @@
     background: #ffffff;
 
     border: 1px solid #e0e6ed;
+
     border-left: 4px solid #3777e8;
 
     border-radius: 13px;
@@ -216,13 +260,15 @@
     padding: 17px 17px 14px;
 
     box-shadow:
-        0 2px 5px rgba(23, 42, 70, 0.04);
+        0 2px 5px
+        rgba(23, 42, 70, 0.04);
 }
 
 .stat-label {
     color: #60738e;
 
     font-size: 10px;
+
     font-weight: 800;
 
     letter-spacing: 0.55px;
@@ -234,6 +280,7 @@
     margin-top: 10px;
 
     font-size: 28px;
+
     line-height: 1;
 
     font-weight: 850;
@@ -305,6 +352,7 @@
     color: #008b65;
 }
 
+
 /* ==========================================
    COMPLAINT SECTION
 ========================================== */
@@ -319,7 +367,8 @@
     overflow: hidden;
 
     box-shadow:
-        0 2px 7px rgba(25, 48, 80, 0.035);
+        0 2px 7px
+        rgba(25, 48, 80, 0.035);
 }
 
 .officer-section-header {
@@ -330,7 +379,9 @@
     border-bottom: 1px solid #e1e7ee;
 
     display: flex;
+
     align-items: center;
+
     justify-content: space-between;
 
     gap: 20px;
@@ -342,6 +393,7 @@
     color: #10213a;
 
     font-size: 19px;
+
     font-weight: 800;
 }
 
@@ -353,12 +405,14 @@
     font-size: 12px;
 }
 
+
 /* ==========================================
    CATEGORY FILTER
 ========================================== */
 
 .officer-section-controls {
     display: flex;
+
     align-items: center;
 
     gap: 10px;
@@ -368,6 +422,7 @@
 
 .officer-category-filter {
     width: 205px;
+
     height: 38px;
 
     padding: 0 35px 0 12px;
@@ -377,9 +432,11 @@
     border-radius: 8px;
 
     background-color: #ffffff;
+
     color: #26364e;
 
     font-size: 12px;
+
     font-weight: 600;
 
     outline: none;
@@ -399,11 +456,13 @@
     border-color: #3b73c9;
 
     box-shadow:
-        0 0 0 3px rgba(59, 115, 201, 0.1);
+        0 0 0 3px
+        rgba(59, 115, 201, 0.1);
 }
 
 .officer-category-filter option {
     background: #ffffff;
+
     color: #26364e;
 
     font-size: 13px;
@@ -413,10 +472,12 @@
     color: #64758c;
 
     font-size: 11px;
+
     font-weight: 700;
 
     white-space: nowrap;
 }
+
 
 /* ==========================================
    LEDGER HEADER
@@ -442,10 +503,12 @@
     color: #50637d;
 
     font-size: 10px;
+
     font-weight: 800;
 
     letter-spacing: 0.45px;
 }
+
 
 /* ==========================================
    COMPLAINT LIST
@@ -483,6 +546,7 @@
     background: #fbfcfe;
 }
 
+
 /* ==========================================
    COMPLAINT INFORMATION
 ========================================== */
@@ -500,8 +564,24 @@
     align-items: center;
 }
 
+.officer-photo-wrapper {
+    width: 82px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 6px;
+}
+
+
+/* ==========================================
+   IMAGE
+========================================== */
+
 .officer-image {
     width: 82px;
+
     height: 67px;
 
     border-radius: 8px;
@@ -515,17 +595,120 @@
     display: flex;
 
     align-items: center;
+
     justify-content: center;
+
+    position: relative;
+
+    cursor: pointer;
 }
 
 .officer-image img {
     width: 100%;
+
     height: 100%;
 
     object-fit: cover;
 
     cursor: pointer;
+
+    display: block;
 }
+
+
+/* ==========================================
+   VIDEO THUMBNAIL
+========================================== */
+
+.officer-video-media {
+    background: #111827;
+
+    cursor: pointer;
+}
+
+.officer-video-thumbnail {
+    width: 100%;
+
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+
+    background: #111827;
+
+    pointer-events: none;
+}
+
+.officer-video-overlay {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background:
+        rgba(0, 0, 0, 0.22);
+
+    pointer-events: none;
+}
+
+.officer-video-play {
+    width: 36px;
+
+    height: 36px;
+
+    border-radius: 50%;
+
+    background:
+        rgba(0, 0, 0, 0.78);
+
+    color: #ffffff;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 15px;
+
+    padding-left: 2px;
+}
+
+.officer-video-label {
+    position: absolute;
+
+    right: 5px;
+
+    bottom: 5px;
+
+    padding: 3px 6px;
+
+    border-radius: 4px;
+
+    background:
+        rgba(0, 0, 0, 0.78);
+
+    color: #ffffff;
+
+    font-size: 7px;
+
+    font-weight: 800;
+
+    letter-spacing: 0.4px;
+
+    pointer-events: none;
+}
+
+
+/* ==========================================
+   NO IMAGE
+========================================== */
 
 .no-image {
     color: #9ba7b6;
@@ -547,8 +730,57 @@
     margin-top: 3px;
 
     font-size: 8px;
+
     font-weight: 600;
 }
+
+.image-error {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: #9ca3af;
+}
+
+
+/* ==========================================
+   VIEW DETAILS
+========================================== */
+
+.photo-details-btn {
+    width: 100%;
+
+    padding: 6px 4px;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 6px;
+
+    background: #ffffff;
+
+    color: #2459a8;
+
+    font-size: 9px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+}
+
+.photo-details-btn:hover {
+    background: #edf4ff;
+
+    border-color: #9dbce9;
+}
+
+
+/* ==========================================
+   INFORMATION
+========================================== */
 
 .officer-info {
     min-width: 0;
@@ -654,6 +886,7 @@
     font-weight: 700;
 }
 
+
 /* ==========================================
    STATUS
 ========================================== */
@@ -686,6 +919,7 @@
 
 .officer-status.pending {
     background: #fff5df;
+
     color: #b56b00;
 
     border-color: #ffd98a;
@@ -693,6 +927,7 @@
 
 .officer-status.verified {
     background: #eef5ff;
+
     color: #2363c6;
 
     border-color: #a9d4ff;
@@ -700,6 +935,7 @@
 
 .officer-status.assigned {
     background: #f5efff;
+
     color: #7334b8;
 
     border-color: #d7b9ff;
@@ -707,6 +943,7 @@
 
 .officer-status.in-progress {
     background: #edf9ff;
+
     color: #0678ad;
 
     border-color: #9bdfff;
@@ -714,6 +951,7 @@
 
 .officer-status.completed {
     background: #fff7dc;
+
     color: #9a6a00;
 
     border-color: #f1d98b;
@@ -721,6 +959,7 @@
 
 .officer-status.resolved {
     background: #eafaf3;
+
     color: #087c5b;
 
     border-color: #9bdcbc;
@@ -728,15 +967,18 @@
 
 .officer-status.unknown {
     background: #f2f4f6;
+
     color: #66758a;
 
     border-color: #d8dee5;
 }
 
-/* WAITING / RESOLVED */
 
-.waiting-label,
-.resolved-label {
+/* ==========================================
+   WAITING
+========================================== */
+
+.waiting-label {
     display: block;
 
     width: fit-content;
@@ -747,20 +989,15 @@
 
     border-radius: 5px;
 
+    background: #f2f5f8;
+
+    color: #718096;
+
     font-size: 9px;
 
     font-weight: 700;
 }
 
-.waiting-label {
-    background: #f2f5f8;
-    color: #718096;
-}
-
-.resolved-label {
-    background: #eaf9f3;
-    color: #087c5b;
-}
 
 /* ==========================================
    CONTRACTOR
@@ -824,8 +1061,10 @@
     border-color: #4c83d9;
 
     box-shadow:
-        0 0 0 2px rgba(76, 131, 217, 0.1);
+        0 0 0 2px
+        rgba(76, 131, 217, 0.1);
 }
+
 
 /* ==========================================
    ACTIONS
@@ -863,6 +1102,7 @@
     cursor: not-allowed;
 }
 
+
 /* VERIFY */
 
 .verify-btn {
@@ -876,6 +1116,7 @@
 .verify-btn:hover:not(:disabled) {
     background: #e1edff;
 }
+
 
 /* ASSIGN */
 
@@ -891,6 +1132,7 @@
     background: #ebe0ff;
 }
 
+
 /* RESOLVE */
 
 .resolve-btn {
@@ -904,6 +1146,7 @@
 .resolve-btn:hover:not(:disabled) {
     background: #dff4eb;
 }
+
 
 /* DETAILS */
 
@@ -920,6 +1163,7 @@
 
     border-color: #b7c3d2;
 }
+
 
 /* ==========================================
    EMPTY / ERROR
@@ -963,18 +1207,20 @@
     color: #b83226;
 }
 
+
 /* ==========================================
-   IMAGE MODAL
+   PHOTO / VIDEO MODAL
 ========================================== */
 
-.officer-image-modal {
+.officer-media-modal {
     position: fixed;
 
     inset: 0;
 
     z-index: 1000;
 
-    background: rgba(8, 18, 32, 0.78);
+    background:
+        rgba(8, 18, 32, 0.84);
 
     display: flex;
 
@@ -988,48 +1234,173 @@
 .officer-modal-content {
     position: relative;
 
-    max-width: 920px;
+    width: min(950px, 95vw);
 
     max-height: 90vh;
-}
 
-.officer-modal-image {
-    max-width: 100%;
+    background: #111111;
 
-    max-height: 85vh;
+    border-radius: 12px;
 
-    border-radius: 10px;
-
-    display: block;
+    overflow: hidden;
 
     box-shadow:
-        0 18px 50px rgba(0, 0, 0, 0.35);
+        0 20px 70px
+        rgba(0, 0, 0, 0.5);
+
+    display: flex;
+
+    flex-direction: column;
 }
+
+
+/* ==========================================
+   MODAL HEADER
+========================================== */
+
+.officer-modal-header {
+    min-height: 55px;
+
+    padding:
+        13px
+        55px
+        13px
+        18px;
+
+    background: #181818;
+
+    color: #ffffff;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+    border-bottom:
+        1px solid
+        rgba(255, 255, 255, 0.1);
+}
+
+.officer-modal-header span {
+    font-size: 15px;
+
+    font-weight: 700;
+}
+
+.officer-modal-header small {
+    color: #a9a9a9;
+
+    font-size: 12px;
+}
+
+
+/* ==========================================
+   CLOSE BUTTON
+========================================== */
 
 .officer-modal-close {
     position: absolute;
 
-    right: -13px;
-    top: -13px;
+    right: 10px;
 
-    width: 34px;
-    height: 34px;
+    top: 9px;
+
+    z-index: 5;
+
+    width: 36px;
+
+    height: 36px;
 
     border: none;
 
     border-radius: 50%;
 
-    background: #ffffff;
+    background:
+        rgba(255, 255, 255, 0.13);
 
-    color: #17263b;
+    color: #ffffff;
 
-    font-size: 23px;
+    font-size: 26px;
+
+    line-height: 1;
 
     cursor: pointer;
 
-    box-shadow:
-        0 3px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
 }
+
+.officer-modal-close:hover {
+    background:
+        rgba(255, 255, 255, 0.25);
+}
+
+
+/* ==========================================
+   MODAL BODY
+========================================== */
+
+.officer-modal-body {
+    width: 100%;
+
+    min-height: 300px;
+
+    max-height:
+        calc(90vh - 55px);
+
+    background: #000000;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+}
+
+
+/* ==========================================
+   MODAL IMAGE
+========================================== */
+
+.officer-modal-image {
+    max-width: 100%;
+
+    max-height:
+        calc(90vh - 55px);
+
+    width: auto;
+
+    height: auto;
+
+    object-fit: contain;
+
+    display: block;
+}
+
+
+/* ==========================================
+   MODAL VIDEO
+========================================== */
+
+.officer-modal-video {
+    display: block;
+
+    width: 100%;
+
+    max-height:
+        calc(90vh - 55px);
+
+    background: #000000;
+
+    object-fit: contain;
+}
+
 
 /* ==========================================
    RESPONSIVE
@@ -1051,6 +1422,7 @@
             minmax(115px, 0.8fr);
     }
 }
+
 
 @media (max-width: 1000px) {
 
@@ -1083,6 +1455,7 @@
         grid-column: 2;
     }
 }
+
 
 @media (max-width: 760px) {
 
@@ -1160,11 +1533,38 @@
             72px minmax(0, 1fr);
     }
 
+    .officer-photo-wrapper {
+        width: 72px;
+    }
+
     .officer-image {
         width: 72px;
+
         height: 62px;
     }
+
+    .officer-media-modal {
+        padding: 10px;
+    }
+
+    .officer-modal-content {
+        width: 100%;
+
+        max-height: 95vh;
+    }
+
+    .officer-modal-body {
+        max-height:
+            calc(95vh - 55px);
+    }
+
+    .officer-modal-image,
+    .officer-modal-video {
+        max-height:
+            calc(95vh - 55px);
+    }
 }
+
 
 @media (max-width: 480px) {
 
@@ -1212,42 +1612,16 @@
     .officer-section-count {
         text-align: left;
     }
-}
 
+    .officer-modal-header {
+        padding:
+            12px
+            50px
+            12px
+            14px;
+    }
 
-.officer-photo-wrapper {
-    width: 82px;
-
-    display: flex;
-    flex-direction: column;
-
-    gap: 6px;
-}
-
-.photo-details-btn {
-    width: 100%;
-
-    padding: 6px 4px;
-
-    border: 1px solid #cbd5e1;
-
-    border-radius: 6px;
-
-    background: #ffffff;
-
-    color: #2459a8;
-
-    font-size: 9px;
-
-    font-weight: 700;
-
-    cursor: pointer;
-
-    transition: 0.2s ease;
-}
-
-.photo-details-btn:hover {
-    background: #edf4ff;
-
-    border-color: #9dbce9;
+    .officer-modal-header small {
+        display: none;
+    }
 }

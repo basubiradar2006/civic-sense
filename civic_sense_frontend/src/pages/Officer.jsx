@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Officer.css";
+import ComplaintLike from "../components/ComplaintLike";
 
 function Officer() {
     const navigate = useNavigate();
@@ -15,19 +16,22 @@ function Officer() {
     const [contractors, setContractors] = useState([]);
 
     const [loading, setLoading] = useState(true);
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
     const [error, setError] = useState("");
 
     const [selectedContractors, setSelectedContractors] =
         useState({});
 
-    // CATEGORY FILTER
     const [selectedCategory, setSelectedCategory] =
         useState("ALL");
 
     const [updatingId, setUpdatingId] = useState(null);
 
-    const [selectedImage, setSelectedImage] =
-        useState(null);
+    // =====================================================
+    // PHOTO / VIDEO MODAL
+    // =====================================================
+
+    const [selectedMedia, setSelectedMedia] = useState(null);
 
     // =====================================================
     // FETCH DATA
@@ -43,26 +47,33 @@ function Officer() {
             }
 
             try {
-                const [complaintsResponse, contractorsResponse] =
-                    await Promise.all([
-                        fetch(
-                            `${API_URL}/api/complaints`,
-                            {
-                                headers: {
-                                    Authorization: `Bearer ${token}`,
-                                },
-                            }
-                        ),
+                setLoading(true);
+                setError("");
 
-                        fetch(
-                            `${API_URL}/api/users/contractors`,
-                            {
-                                headers: {
-                                    Authorization: `Bearer ${token}`,
-                                },
-                            }
-                        ),
-                    ]);
+                const [
+                    complaintsResponse,
+                    contractorsResponse,
+                ] = await Promise.all([
+                    fetch(
+                        `${API_URL}/api/complaints`,
+                        {
+                            headers: {
+                                Authorization:
+                                    `Bearer ${token}`,
+                            },
+                        }
+                    ),
+
+                    fetch(
+                        `${API_URL}/api/users/contractors`,
+                        {
+                            headers: {
+                                Authorization:
+                                    `Bearer ${token}`,
+                            },
+                        }
+                    ),
+                ]);
 
                 if (
                     complaintsResponse.status === 401 ||
@@ -106,6 +117,8 @@ function Officer() {
                         ? contractorsData
                         : []
                 );
+
+                setHasLoadedOnce(true);
             } catch (err) {
                 console.error(
                     "Officer dashboard error:",
@@ -130,6 +143,7 @@ function Officer() {
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        localStorage.removeItem("username");
 
         navigate("/");
     };
@@ -147,12 +161,12 @@ function Officer() {
             previous.map((complaint) =>
                 complaint.id === complaintId
                     ? {
-                          ...complaint,
-                          status: newStatus,
-                          ...(contractor !== undefined
-                              ? { contractor }
-                              : {}),
-                      }
+                        ...complaint,
+                        status: newStatus,
+                        ...(contractor !== undefined
+                            ? { contractor }
+                            : {}),
+                    }
                     : complaint
             )
         );
@@ -160,7 +174,6 @@ function Officer() {
 
     // =====================================================
     // VERIFY COMPLAINT
-    // PENDING → VERIFIED
     // =====================================================
 
     const verifyComplaint = async (id) => {
@@ -174,10 +187,22 @@ function Officer() {
                 {
                     method: "PUT",
                     headers: {
-                        Authorization: `Bearer ${token}`,
+                        Authorization:
+                            `Bearer ${token}`,
                     },
                 }
             );
+
+            if (
+                response.status === 401 ||
+                response.status === 403
+            ) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+
+                navigate("/");
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error(
@@ -205,10 +230,11 @@ function Officer() {
 
     // =====================================================
     // ASSIGN CONTRACTOR
-    // VERIFIED → ASSIGNED
     // =====================================================
 
-    const assignContractor = async (complaintId) => {
+    const assignContractor = async (
+        complaintId
+    ) => {
         const contractorId =
             selectedContractors[complaintId];
 
@@ -219,7 +245,8 @@ function Officer() {
             return;
         }
 
-        const token = localStorage.getItem("token");
+        const token =
+            localStorage.getItem("token");
 
         try {
             setUpdatingId(complaintId);
@@ -229,10 +256,22 @@ function Officer() {
                 {
                     method: "PUT",
                     headers: {
-                        Authorization: `Bearer ${token}`,
+                        Authorization:
+                            `Bearer ${token}`,
                     },
                 }
             );
+
+            if (
+                response.status === 401 ||
+                response.status === 403
+            ) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+
+                navigate("/");
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error(
@@ -268,11 +307,11 @@ function Officer() {
 
     // =====================================================
     // RESOLVE COMPLAINT
-    // COMPLETED → RESOLVED
     // =====================================================
 
     const resolveComplaint = async (id) => {
-        const token = localStorage.getItem("token");
+        const token =
+            localStorage.getItem("token");
 
         try {
             setUpdatingId(id);
@@ -282,10 +321,22 @@ function Officer() {
                 {
                     method: "PUT",
                     headers: {
-                        Authorization: `Bearer ${token}`,
+                        Authorization:
+                            `Bearer ${token}`,
                     },
                 }
             );
+
+            if (
+                response.status === 401 ||
+                response.status === 403
+            ) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+
+                navigate("/");
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error(
@@ -326,6 +377,87 @@ function Officer() {
     };
 
     // =====================================================
+    // MEDIA TYPE DETECTION
+    // =====================================================
+
+    const isVideoMedia = (complaint) => {
+        const mediaType = String(
+            complaint?.mediaType || ""
+        ).toUpperCase();
+
+        if (mediaType === "VIDEO") {
+            return true;
+        }
+
+        const url = String(
+            complaint?.mediaUrl || ""
+        ).toLowerCase();
+
+        return (
+            url.includes(".mp4") ||
+            url.includes(".webm") ||
+            url.includes(".mov") ||
+            url.includes(".m4v") ||
+            url.includes(".ogg")
+        );
+    };
+
+    // =====================================================
+    // OPEN MEDIA
+    // =====================================================
+
+    const openMedia = (complaint) => {
+        if (!complaint?.mediaUrl) {
+            return;
+        }
+
+        const video =
+            isVideoMedia(complaint);
+
+        setSelectedMedia({
+            url: complaint.mediaUrl,
+            type: video
+                ? "VIDEO"
+                : "PHOTO",
+            category:
+                complaint.category ||
+                "Complaint Evidence",
+        });
+    };
+
+    // =====================================================
+    // CLOSE MEDIA
+    // =====================================================
+
+    const closeMedia = () => {
+        setSelectedMedia(null);
+    };
+
+    // =====================================================
+    // ESCAPE TO CLOSE MODAL
+    // =====================================================
+
+    useEffect(() => {
+        const handleEscape = (event) => {
+            if (event.key === "Escape") {
+                closeMedia();
+            }
+        };
+
+        window.addEventListener(
+            "keydown",
+            handleEscape
+        );
+
+        return () => {
+            window.removeEventListener(
+                "keydown",
+                handleEscape
+            );
+        };
+    }, []);
+
+    // =====================================================
     // STATISTICS
     // =====================================================
 
@@ -335,37 +467,43 @@ function Officer() {
     const pendingComplaints =
         complaints.filter(
             (complaint) =>
-                complaint.status === "PENDING"
+                complaint.status ===
+                "PENDING"
         ).length;
 
     const verifiedComplaints =
         complaints.filter(
             (complaint) =>
-                complaint.status === "VERIFIED"
+                complaint.status ===
+                "VERIFIED"
         ).length;
 
     const assignedComplaints =
         complaints.filter(
             (complaint) =>
-                complaint.status === "ASSIGNED"
+                complaint.status ===
+                "ASSIGNED"
         ).length;
 
     const inProgressComplaints =
         complaints.filter(
             (complaint) =>
-                complaint.status === "IN_PROGRESS"
+                complaint.status ===
+                "IN_PROGRESS"
         ).length;
 
     const completedComplaints =
         complaints.filter(
             (complaint) =>
-                complaint.status === "COMPLETED"
+                complaint.status ===
+                "COMPLETED"
         ).length;
 
     const resolvedComplaints =
         complaints.filter(
             (complaint) =>
-                complaint.status === "RESOLVED"
+                complaint.status ===
+                "RESOLVED"
         ).length;
 
     // =====================================================
@@ -440,7 +578,7 @@ function Officer() {
             return "unknown";
         }
 
-        return status
+        return String(status)
             .toLowerCase()
             .replace(/\s+/g, "-");
     };
@@ -470,7 +608,9 @@ function Officer() {
     return (
         <div className="officer-page">
 
-            {/* HEADER */}
+            {/* =================================================
+                HEADER
+            ================================================= */}
 
             <header className="officer-header">
 
@@ -500,7 +640,9 @@ function Officer() {
                             ●
                         </span>
 
-                        {user?.name || "Officer"}
+                        {user?.name ||
+                            user?.userName ||
+                            "Officer"}
 
                         <span className="officer-role">
                             OFFICER
@@ -519,7 +661,10 @@ function Officer() {
 
             </header>
 
-            {/* MAIN */}
+
+            {/* =================================================
+                MAIN
+            ================================================= */}
 
             <main className="officer-main">
 
@@ -543,12 +688,14 @@ function Officer() {
 
                 </section>
 
-                {/* STATISTICS */}
+
+                {/* =================================================
+                    STATISTICS
+                ================================================= */}
 
                 <section className="officer-stats">
 
                     <div className="officer-stat-card stat-total">
-
                         <span className="stat-label">
                             TOTAL COMPLAINTS
                         </span>
@@ -560,11 +707,9 @@ function Officer() {
                         <span className="stat-note">
                             All reported issues
                         </span>
-
                     </div>
 
                     <div className="officer-stat-card stat-pending">
-
                         <span className="stat-label">
                             PENDING TRIAGE
                         </span>
@@ -576,11 +721,9 @@ function Officer() {
                         <span className="stat-note">
                             Awaiting verification
                         </span>
-
                     </div>
 
                     <div className="officer-stat-card stat-verified">
-
                         <span className="stat-label">
                             VERIFIED
                         </span>
@@ -592,11 +735,9 @@ function Officer() {
                         <span className="stat-note">
                             Ready for dispatch
                         </span>
-
                     </div>
 
                     <div className="officer-stat-card stat-assigned">
-
                         <span className="stat-label">
                             ASSIGNED
                         </span>
@@ -608,11 +749,9 @@ function Officer() {
                         <span className="stat-note">
                             Contractor assigned
                         </span>
-
                     </div>
 
                     <div className="officer-stat-card stat-progress">
-
                         <span className="stat-label">
                             ACTIVE REPAIRS
                         </span>
@@ -624,11 +763,9 @@ function Officer() {
                         <span className="stat-note">
                             Contractors working
                         </span>
-
                     </div>
 
                     <div className="officer-stat-card stat-completed">
-
                         <span className="stat-label">
                             COMPLETED
                         </span>
@@ -640,11 +777,9 @@ function Officer() {
                         <span className="stat-note">
                             Awaiting confirmation
                         </span>
-
                     </div>
 
                     <div className="officer-stat-card stat-resolved">
-
                         <span className="stat-label">
                             RESOLVED
                         </span>
@@ -656,12 +791,14 @@ function Officer() {
                         <span className="stat-note">
                             Closed complaints
                         </span>
-
                     </div>
 
                 </section>
 
-                {/* COMPLAINTS */}
+
+                {/* =================================================
+                    COMPLAINTS
+                ================================================= */}
 
                 <section className="officer-complaints">
 
@@ -674,8 +811,9 @@ function Officer() {
                             </div>
 
                             <h2>
-                                Municipal Complaint Triage
-                                &amp; Dispatch Ledger
+                                Municipal Complaint
+                                Triage &amp; Dispatch
+                                Ledger
                             </h2>
 
                             <p>
@@ -685,38 +823,59 @@ function Officer() {
 
                         </div>
 
-                        {/* CATEGORY FILTER */}
-
                         <div className="officer-section-controls">
 
                             <select
                                 className="officer-category-filter"
-                                value={selectedCategory}
+                                value={
+                                    selectedCategory
+                                }
                                 onChange={(event) =>
-                                    setSelectedCategory(event.target.value)
+                                    setSelectedCategory(
+                                        event.target.value
+                                    )
                                 }
                             >
+
                                 <option value="ALL">
                                     All Categories
                                 </option>
 
-                                {categoryOptions.map((category) => (
-                                    <option
-                                        key={category.value}
-                                        value={category.value}
-                                    >
-                                        {category.label}
-                                    </option>
-                                ))}
+                                {categoryOptions.map(
+                                    (category) => (
+                                        <option
+                                            key={
+                                                category.value
+                                            }
+                                            value={
+                                                category.value
+                                            }
+                                        >
+                                            {
+                                                category.label
+                                            }
+                                        </option>
+                                    )
+                                )}
+
                             </select>
 
                             <span className="officer-section-count">
-                                {filteredComplaints.length} reports
+                                {
+                                    filteredComplaints.length
+                                }{" "}
+                                {
+                                    filteredComplaints.length ===
+                                    1
+                                        ? "report"
+                                        : "reports"
+                                }
                             </span>
 
                         </div>
 
                     </div>
+
 
                     {/* LOADING */}
 
@@ -734,32 +893,36 @@ function Officer() {
                         </div>
                     )}
 
+
                     {/* ERROR */}
 
-                    {!loading && error && (
-                        <div className="officer-empty officer-error">
+                    {!loading &&
+                        error && (
+                            <div className="officer-empty officer-error">
 
-                            <div className="empty-icon">
-                                !
+                                <div className="empty-icon">
+                                    !
+                                </div>
+
+                                <h3>
+                                    Unable to load
+                                    dashboard
+                                </h3>
+
+                                <p>
+                                    {error}
+                                </p>
+
                             </div>
+                        )}
 
-                            <h3>
-                                Unable to load dashboard
-                            </h3>
-
-                            <p>
-                                {error}
-                            </p>
-
-                        </div>
-                    )}
 
                     {/* NO COMPLAINTS */}
 
                     {!loading &&
                         !error &&
-                        filteredComplaints.length === 0 && (
-
+                        filteredComplaints.length ===
+                        0 && (
                             <div className="officer-empty">
 
                                 <div className="empty-icon">
@@ -776,11 +939,13 @@ function Officer() {
                             </div>
                         )}
 
+
                     {/* COMPLAINT LIST */}
 
                     {!loading &&
                         !error &&
-                        filteredComplaints.length > 0 && (
+                        filteredComplaints.length >
+                        0 && (
 
                             <div className="officer-complaint-list">
 
@@ -798,7 +963,8 @@ function Officer() {
                                     </div>
 
                                     <div>
-                                        ASSIGNED CONTRACTOR
+                                        ASSIGNED
+                                        CONTRACTOR
                                     </div>
 
                                     <div>
@@ -807,384 +973,503 @@ function Officer() {
 
                                 </div>
 
+
                                 {/* COMPLAINTS */}
 
                                 {filteredComplaints.map(
-                                    (complaint) => (
+                                    (complaint) => {
 
-                                        <div
-                                            className="officer-complaint-card"
-                                            key={
-                                                complaint.id
-                                            }
-                                        >
+                                        const isVideo =
+                                            isVideoMedia(
+                                                complaint
+                                            );
 
-                                            {/* COMPLAINT INFORMATION */}
+                                        return (
+                                            <div
+                                                className="officer-complaint-card"
+                                                key={
+                                                    complaint.id
+                                                }
+                                            >
 
-                                            <div className="officer-complaint-main">
+                                                {/* =================================
+                                                    COMPLAINT INFORMATION
+                                                ================================= */}
 
-                                                {/* IMAGE */}
+                                                <div className="officer-complaint-main">
 
-                                                <div className="officer-photo-wrapper">
+                                                    {/* MEDIA */}
 
-                                                    <div className="officer-image">
+                                                    <div className="officer-photo-wrapper">
 
-                                                        {complaint.mediaUrl ? (
-                                                            <img
-                                                                src={complaint.mediaUrl}
-                                                                alt={
-                                                                    complaint.category ||
-                                                                    "Complaint"
-                                                                }
-                                                                onClick={() =>
-                                                                    setSelectedImage(
-                                                                        complaint.mediaUrl
-                                                                    )
-                                                                }
-                                                                onError={handleImageError}
-                                                            />
-                                                        ) : (
-                                                            <div className="no-image">
-                                                                <span>IMG</span>
-                                                                <small>No image</small>
-                                                            </div>
-                                                        )}
-
-                                                    </div>
-
-                                                    <button
-                                                        className="photo-details-btn"
-                                                        onClick={() =>
-                                                            navigate(
-                                                                `/report/${complaint.id}`
-                                                            )
-                                                        }
-                                                    >
-                                                        View Details
-                                                    </button>
-
-                                                </div>
-                                                {/* INFORMATION */}
-
-                                                <div className="officer-info">
-
-                                                    <div className="officer-id-row">
-
-                                                        <span className="officer-complaint-id">
-                                                            CS-
-                                                            {String(
-                                                                complaint.id
-                                                            ).padStart(
-                                                                4,
-                                                                "0"
-                                                            )}
-                                                        </span>
-
-                                                        <span className="officer-category">
-                                                            {complaint.category ||
-                                                                "Civic Issue"}
-                                                        </span>
-
-                                                    </div>
-
-                                                    <h3>
-                                                        {complaint.description ||
-                                                            "No description provided."}
-                                                    </h3>
-
-                                                    <p className="officer-location">
-
-                                                        <span className="location-pin">
-                                                            ●
-                                                        </span>
-
-                                                        {complaint.address ? (
-                                                            complaint.address
-                                                        ) : (
-                                                            <>
-                                                                {formatCoordinate(
-                                                                    complaint.latitude
-                                                                )}
-
-                                                                {", "}
-
-                                                                {formatCoordinate(
-                                                                    complaint.longitude
-                                                                )}
-                                                            </>
-                                                        )}
-
-                                                    </p>
-
-                                                    <div className="officer-meta-row">
-
-                                                        <span>
-                                                            Reported:{" "}
-                                                            {complaint.capturedAt
-                                                                ? new Date(
-                                                                      complaint.capturedAt
-                                                                  ).toLocaleString()
-                                                                : "Unknown"}
-                                                        </span>
-
-                                                        {complaint.user && (
-                                                            <span>
-                                                                Citizen:{" "}
-                                                                {complaint
-                                                                    .user
-                                                                    .name ||
+                                                        <div
+                                                            className={`officer-image ${
+                                                                isVideo
+                                                                    ? "officer-video-media"
+                                                                    : ""
+                                                            }`}
+                                                            onClick={() =>
+                                                                openMedia(
                                                                     complaint
-                                                                        .user
-                                                                        .email ||
-                                                                    "Citizen"}
-                                                            </span>
-                                                        )}
+                                                                )
+                                                            }
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            onKeyDown={(
+                                                                event
+                                                            ) => {
+                                                                if (
+                                                                    event.key ===
+                                                                        "Enter" ||
+                                                                    event.key ===
+                                                                        " "
+                                                                ) {
+                                                                    event.preventDefault();
+
+                                                                    openMedia(
+                                                                        complaint
+                                                                    );
+                                                                }
+                                                            }}
+                                                        >
+
+                                                            {complaint.mediaUrl ? (
+
+                                                                isVideo ? (
+
+                                                                    <>
+                                                                        <video
+                                                                            src={
+                                                                                complaint.mediaUrl
+                                                                            }
+                                                                            muted
+                                                                            playsInline
+                                                                            preload="metadata"
+                                                                            className="officer-video-thumbnail"
+                                                                            onError={
+                                                                                handleImageError
+                                                                            }
+                                                                        />
+
+                                                                        <div className="officer-video-overlay">
+
+                                                                            <div className="officer-video-play">
+                                                                                ▶
+                                                                            </div>
+
+                                                                        </div>
+
+                                                                        <div className="officer-video-label">
+                                                                            VIDEO
+                                                                        </div>
+                                                                    </>
+
+                                                                ) : (
+
+                                                                    <img
+                                                                        src={
+                                                                            complaint.mediaUrl
+                                                                        }
+                                                                        alt={
+                                                                            complaint.category ||
+                                                                            "Complaint"
+                                                                        }
+                                                                        onError={
+                                                                            handleImageError
+                                                                        }
+                                                                    />
+
+                                                                )
+
+                                                            ) : (
+
+                                                                <div className="no-image">
+
+                                                                    <span>
+                                                                        IMG
+                                                                    </span>
+
+                                                                    <small>
+                                                                        No image
+                                                                    </small>
+
+                                                                </div>
+
+                                                            )}
+
+                                                        </div>
+
+
+                                                        <button
+                                                            className="photo-details-btn"
+                                                            onClick={() =>
+                                                                navigate(
+                                                                    `/report/${complaint.id}`,
+                                                                    {
+                                                                        state: {
+                                                                            complaint,
+                                                                        },
+                                                                    }
+                                                                )
+                                                            }
+                                                        >
+                                                            View Details
+                                                        </button>
 
                                                     </div>
 
-                                                    {complaint.contractor && (
-                                                        <p className="officer-contractor">
 
-                                                            Contractor:{" "}
+                                                    {/* INFORMATION */}
 
-                                                            {complaint
-                                                                .contractor
-                                                                .name ||
-                                                                complaint
-                                                                    .contractor
-                                                                    .email}
+                                                    <div className="officer-info">
+
+                                                        <div className="officer-id-row">
+
+                                                            <span className="officer-complaint-id">
+                                                                CS-
+                                                                {String(
+                                                                    complaint.id
+                                                                ).padStart(
+                                                                    4,
+                                                                    "0"
+                                                                )}
+                                                            </span>
+
+                                                            <span className="officer-category">
+                                                                {
+                                                                    complaint.category ||
+                                                                    "Civic Issue"
+                                                                }
+                                                            </span>
+
+                                                        </div>
+
+
+                                                        <h3>
+                                                            {
+                                                                complaint.description ||
+                                                                "No description provided."
+                                                            }
+                                                        </h3>
+
+
+                                                        <p className="officer-location">
+
+                                                            <span className="location-pin">
+                                                                ●
+                                                            </span>
+
+                                                            {complaint.address ? (
+                                                                complaint.address
+                                                            ) : (
+                                                                <>
+                                                                    {formatCoordinate(
+                                                                        complaint.latitude
+                                                                    )}
+
+                                                                    {", "}
+
+                                                                    {formatCoordinate(
+                                                                        complaint.longitude
+                                                                    )}
+                                                                </>
+                                                            )}
 
                                                         </p>
+
+
+                                                        <div className="officer-meta-row">
+
+                                                            <span>
+                                                                Reported:{" "}
+                                                                {complaint.capturedAt
+                                                                    ? new Date(
+                                                                        complaint.capturedAt
+                                                                    ).toLocaleString()
+                                                                    : "Unknown"}
+                                                            </span>
+
+
+                                                            {complaint.user && (
+                                                                <span>
+                                                                    Citizen:{" "}
+                                                                    {
+                                                                        complaint.user.name
+                                                                    ||
+                                                                        complaint.user.email
+                                                                    ||
+                                                                        "Citizen"}
+                                                                </span>
+                                                            )}
+
+                                                        </div>
+
+
+                                                        {complaint.contractor && (
+                                                            <p className="officer-contractor">
+
+                                                                Contractor:{" "}
+
+                                                                {
+                                                                    complaint.contractor.name ||
+                                                                    complaint.contractor.email
+                                                                }
+
+                                                            </p>
+                                                        )}
+
+
+                                                        {/* ==========================================
+                                                            LIKE / EXPERIENCING THIS TOO
+                                                        ========================================== */}
+
+                                                        <ComplaintLike
+                                                            complaintId={
+                                                                complaint.id
+                                                            }
+                                                            initialLikeCount={
+                                                                complaint.likeCount
+                                                            }
+                                                            initialLiked={
+                                                                complaint.liked
+                                                            }
+                                                        />
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                {/* =================================
+                                                    STATUS
+                                                ================================= */}
+
+                                                <div className="officer-status-column">
+
+                                                    <span
+                                                        className={`officer-status ${getStatusClass(
+                                                            complaint.status
+                                                        )}`}
+                                                    >
+                                                        {
+                                                            complaint.status ||
+                                                            "UNKNOWN"
+                                                        }
+                                                    </span>
+
+
+                                                    {complaint.status ===
+                                                        "IN_PROGRESS" && (
+
+                                                        <span className="waiting-label">
+                                                            Contractor
+                                                            working
+                                                        </span>
+
                                                     )}
 
                                                 </div>
 
-                                            </div>
 
-                                            {/* STATUS */}
+                                                {/* =================================
+                                                    CONTRACTOR
+                                                ================================= */}
 
-                                            <div className="officer-status-column">
+                                                <div className="officer-contractor-column">
 
-                                                <span
-                                                    className={`officer-status ${getStatusClass(
-                                                        complaint.status
-                                                    )}`}
-                                                >
-                                                    {complaint.status ||
-                                                        "UNKNOWN"}
-                                                </span>
+                                                    {complaint.status ===
+                                                    "VERIFIED" ? (
 
-                                                {complaint.status ===
-                                                    "IN_PROGRESS" && (
+                                                        <>
 
-                                                    <span className="waiting-label">
-                                                        Contractor working
-                                                    </span>
-
-                                                )}
-
-                                                
-
-                                                {complaint.status ===
-                                                    "RESOLVED" && (
-
-                                                    <span className="resolved-label">
-                                                        ✓ Resolved
-                                                    </span>
-
-                                                )}
-
-                                            </div>
-
-                                            {/* CONTRACTOR */}
-
-                                            <div className="officer-contractor-column">
-
-                                                {complaint.status ===
-                                                "VERIFIED" ? (
-
-                                                    <>
-
-                                                        <select
-                                                            className="contractor-select"
-                                                            value={
-                                                                selectedContractors[
-                                                                    complaint
-                                                                        .id
-                                                                ] || ""
-                                                            }
-                                                            onChange={(
-                                                                event
-                                                            ) =>
-                                                                handleContractorChange(
-                                                                    complaint.id,
+                                                            <select
+                                                                className="contractor-select"
+                                                                value={
+                                                                    selectedContractors[
+                                                                        complaint.id
+                                                                    ] ||
+                                                                    ""
+                                                                }
+                                                                onChange={(
                                                                     event
-                                                                        .target
-                                                                        .value
-                                                                )
-                                                            }
-                                                        >
+                                                                ) =>
+                                                                    handleContractorChange(
+                                                                        complaint.id,
+                                                                        event
+                                                                            .target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                            >
 
-                                                            <option value="">
-                                                                Select Contractor
-                                                            </option>
+                                                                <option value="">
+                                                                    Select
+                                                                    Contractor
+                                                                </option>
 
-                                                            {contractors.map(
-                                                                (
-                                                                    contractor
-                                                                ) => (
+                                                                {contractors.map(
+                                                                    (
+                                                                        contractor
+                                                                    ) => (
 
-                                                                    <option
-                                                                        key={
-                                                                            contractor.id
-                                                                        }
-                                                                        value={
-                                                                            contractor.id
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            contractor.name
-                                                                        }
-                                                                    </option>
+                                                                        <option
+                                                                            key={
+                                                                                contractor.id
+                                                                            }
+                                                                            value={
+                                                                                contractor.id
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                contractor.name
+                                                                            }
+                                                                        </option>
 
-                                                                )
-                                                            )}
+                                                                    )
+                                                                )}
 
-                                                        </select>
+                                                            </select>
+
+
+                                                            <button
+                                                                className="assign-btn"
+                                                                disabled={
+                                                                    updatingId ===
+                                                                    complaint.id
+                                                                }
+                                                                onClick={() =>
+                                                                    assignContractor(
+                                                                        complaint.id
+                                                                    )
+                                                                }
+                                                            >
+                                                                {updatingId ===
+                                                                complaint.id
+                                                                    ? "Assigning..."
+                                                                    : "Assign Contractor"}
+                                                            </button>
+
+                                                        </>
+
+                                                    ) : complaint.contractor ? (
+
+                                                        <div className="contractor-display">
+
+                                                            <strong>
+                                                                {
+                                                                    complaint.contractor.name ||
+                                                                    complaint.contractor.email
+                                                                }
+                                                            </strong>
+
+                                                            <span>
+                                                                Assigned
+                                                                contractor
+                                                            </span>
+
+                                                        </div>
+
+                                                    ) : (
+
+                                                        <span className="contractor-empty">
+                                                            Not assigned
+                                                        </span>
+
+                                                    )}
+
+                                                </div>
+
+
+                                                {/* =================================
+                                                    ACTIONS
+                                                ================================= */}
+
+                                                <div className="officer-actions">
+
+                                                    {complaint.status ===
+                                                        "PENDING" && (
 
                                                         <button
-                                                            className="assign-btn"
+                                                            className="verify-btn"
                                                             disabled={
                                                                 updatingId ===
                                                                 complaint.id
                                                             }
                                                             onClick={() =>
-                                                                assignContractor(
+                                                                verifyComplaint(
                                                                     complaint.id
                                                                 )
                                                             }
                                                         >
                                                             {updatingId ===
                                                             complaint.id
-                                                                ? "Assigning..."
-                                                                : "Assign Contractor"}
+                                                                ? "Updating..."
+                                                                : "Verify Complaint"}
                                                         </button>
 
-                                                    </>
+                                                    )}
 
-                                                ) : complaint.contractor ? (
 
-                                                    <div className="contractor-display">
+                                                    {complaint.status ===
+                                                        "COMPLETED" && (
 
-                                                        <strong>
-                                                            {complaint
-                                                                .contractor
-                                                                .name ||
-                                                                complaint
-                                                                    .contractor
-                                                                    .email}
-                                                        </strong>
+                                                        <button
+                                                            className="resolve-btn"
+                                                            disabled={
+                                                                updatingId ===
+                                                                complaint.id
+                                                            }
+                                                            onClick={() =>
+                                                                resolveComplaint(
+                                                                    complaint.id
+                                                                )
+                                                            }
+                                                        >
+                                                            {updatingId ===
+                                                            complaint.id
+                                                                ? "Resolving..."
+                                                                : "Confirm & Resolve"}
+                                                        </button>
 
-                                                        <span>
-                                                            Assigned contractor
-                                                        </span>
+                                                    )}
 
-                                                    </div>
-
-                                                ) : (
-
-                                                    <span className="contractor-empty">
-                                                        Not assigned
-                                                    </span>
-
-                                                )}
-
-                                            </div>
-
-                                            {/* ACTIONS */}
-
-                                            <div className="officer-actions">
-
-                                                {complaint.status ===
-                                                    "PENDING" && (
 
                                                     <button
-                                                        className="verify-btn"
-                                                        disabled={
-                                                            updatingId ===
-                                                            complaint.id
-                                                        }
+                                                        className="details-btn"
                                                         onClick={() =>
-                                                            verifyComplaint(
-                                                                complaint.id
+                                                            navigate(
+                                                                `/report/${complaint.id}`
                                                             )
                                                         }
                                                     >
-                                                        {updatingId ===
-                                                        complaint.id
-                                                            ? "Updating..."
-                                                            : "Verify Complaint"}
+                                                        Inspect Dossier
                                                     </button>
 
-                                                )}
-
-                                                {complaint.status ===
-                                                    "COMPLETED" && (
-
-                                                    <button
-                                                        className="resolve-btn"
-                                                        disabled={
-                                                            updatingId ===
-                                                            complaint.id
-                                                        }
-                                                        onClick={() =>
-                                                            resolveComplaint(
-                                                                complaint.id
-                                                            )
-                                                        }
-                                                    >
-                                                        {updatingId ===
-                                                        complaint.id
-                                                            ? "Resolving..."
-                                                            : "Confirm & Resolve"}
-                                                    </button>
-
-                                                )}
-
-                                                <button
-                                                    className="details-btn"
-                                                    onClick={() =>
-                                                        navigate(
-                                                            `/report/${complaint.id}`
-                                                        )
-                                                    }
-                                                >
-                                                    Inspect Dossier
-                                                </button>
+                                                </div>
 
                                             </div>
-
-                                        </div>
-
-                                    )
+                                        );
+                                    }
                                 )}
 
                             </div>
+
                         )}
 
                 </section>
 
             </main>
 
-            {/* IMAGE MODAL */}
 
-            {selectedImage && (
+            {/* =====================================================
+                PHOTO / VIDEO MODAL
+            ===================================================== */}
+
+            {selectedMedia && (
 
                 <div
-                    className="officer-image-modal"
-                    onClick={() =>
-                        setSelectedImage(null)
-                    }
+                    className="officer-media-modal"
+                    onClick={closeMedia}
                 >
 
                     <div
@@ -1196,18 +1481,61 @@ function Officer() {
 
                         <button
                             className="officer-modal-close"
-                            onClick={() =>
-                                setSelectedImage(null)
-                            }
+                            onClick={closeMedia}
+                            aria-label="Close"
                         >
                             ×
                         </button>
 
-                        <img
-                            src={selectedImage}
-                            alt="Complaint"
-                            className="officer-modal-image"
-                        />
+
+                        <div className="officer-modal-header">
+
+                            <span>
+                                {selectedMedia.type ===
+                                "VIDEO"
+                                    ? "🎥 Video Evidence"
+                                    : "🖼️ Photo Evidence"}
+                            </span>
+
+                            <small>
+                                {
+                                    selectedMedia.category
+                                }
+                            </small>
+
+                        </div>
+
+
+                        <div className="officer-modal-body">
+
+                            {selectedMedia.type ===
+                            "VIDEO" ? (
+
+                                <video
+                                    src={
+                                        selectedMedia.url
+                                    }
+                                    controls
+                                    playsInline
+                                    preload="metadata"
+                                    className="officer-modal-video"
+                                />
+
+                            ) : (
+
+                                <img
+                                    src={
+                                        selectedMedia.url
+                                    }
+                                    alt={
+                                        selectedMedia.category
+                                    }
+                                    className="officer-modal-image"
+                                />
+
+                            )}
+
+                        </div>
 
                     </div>
 
