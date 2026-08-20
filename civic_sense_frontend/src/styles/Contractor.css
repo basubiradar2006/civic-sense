@@ -2,6 +2,10 @@
    CONTRACTOR DASHBOARD
 ========================================================= */
 
+* {
+    box-sizing: border-box;
+}
+
 .contractor-page {
     min-height: 100vh;
 
@@ -32,17 +36,13 @@
     background: #ffffff;
 
     border-top: 1px solid #e5e7eb;
-
     border-bottom: 1px solid #dfe5ec;
 
     display: flex;
-
     align-items: center;
-
     justify-content: space-between;
 
     position: sticky;
-
     top: 0;
 
     z-index: 100;
@@ -55,7 +55,6 @@
 
 .contractor-brand {
     display: flex;
-
     align-items: center;
 
     gap: 30px;
@@ -63,31 +62,27 @@
 
 .contractor-brand-logo {
     width: 43px;
-
     height: 43px;
 
     border-radius: 11px;
 
     background: #123f91;
-
     color: #ffffff;
 
     display: flex;
-
     align-items: center;
-
     justify-content: center;
 
     font-size: 13px;
-
     font-weight: 800;
+
+    flex-shrink: 0;
 }
 
 .contractor-brand-name {
     color: #0c2544;
 
     font-size: 24px;
-
     line-height: 1;
 
     font-weight: 850;
@@ -99,7 +94,6 @@
     color: #6a7f9b;
 
     font-size: 10px;
-
     font-weight: 800;
 
     letter-spacing: 0.1em;
@@ -112,7 +106,6 @@
 
 .contractor-header-right {
     display: flex;
-
     align-items: center;
 
     gap: 20px;
@@ -120,7 +113,6 @@
 
 .contractor-user {
     display: flex;
-
     align-items: center;
 
     gap: 8px;
@@ -128,18 +120,18 @@
     color: #29425f;
 
     font-size: 13px;
-
     font-weight: 700;
 }
 
 .contractor-online-dot {
     width: 6px;
-
     height: 6px;
 
     border-radius: 50%;
 
     background: #0aa878;
+
+    flex-shrink: 0;
 }
 
 .contractor-role-badge {
@@ -148,11 +140,9 @@
     border-radius: 7px;
 
     background: #edf3fc;
-
     color: #1f56a5;
 
     font-size: 10px;
-
     font-weight: 800;
 
     letter-spacing: 0.04em;
@@ -164,15 +154,12 @@
     padding: 11px 18px;
 
     border: 1px solid #111827;
-
     border-radius: 8px;
 
     background: #0b0b0b;
-
     color: #ffffff;
 
     font-size: 12px;
-
     font-weight: 700;
 
     cursor: pointer;
@@ -182,7 +169,6 @@
 
 .contractor-logout-btn:hover {
     background: #000000;
-
     border-color: #000000;
 }
 
@@ -192,6 +178,7 @@
 ========================================================= */
 
 .contractor-main {
+    width: 100%;
     max-width: 1315px;
 
     margin: 0 auto;
@@ -216,7 +203,6 @@
     color: #547291;
 
     font-size: 12px;
-
     font-weight: 850;
 
     letter-spacing: 0.08em;
@@ -228,7 +214,6 @@
     color: #071f3d;
 
     font-size: 36px;
-
     line-height: 1.1;
 
     font-weight: 900;
@@ -268,7 +253,6 @@
     background: #ffffff;
 
     border: 1px solid #dce4ee;
-
     border-left: 5px solid #2f61d5;
 
     border-radius: 15px;
@@ -299,7 +283,6 @@
     color: #55708e;
 
     font-size: 12px;
-
     font-weight: 850;
 
     text-align: center;
@@ -311,24 +294,20 @@
     color: #2d61d3;
 
     font-size: 34px;
-
     font-weight: 850;
 
     text-align: center;
 }
 
-.contractor-stat-card.assigned
-    .contractor-stat-number {
+.contractor-stat-card.assigned .contractor-stat-number {
     color: #8335dc;
 }
 
-.contractor-stat-card.progress
-    .contractor-stat-number {
+.contractor-stat-card.progress .contractor-stat-number {
     color: #2b66d4;
 }
 
-.contractor-stat-card.completed
-    .contractor-stat-number {
+.contractor-stat-card.completed .contractor-stat-number {
     color: #078f69;
 }
 
@@ -338,7 +317,6 @@
     color: #7b8ea7;
 
     font-size: 11px;
-
     line-height: 1.6;
 
     text-align: center;
@@ -350,6 +328,8 @@
 ========================================================= */
 
 .contractor-projects {
+    width: 100%;
+
     background: #ffffff;
 
     border: 1px solid #dce4ee;
@@ -387,7 +367,6 @@
     color: #547291;
 
     font-size: 11px;
-
     font-weight: 850;
 
     letter-spacing: 0.08em;
@@ -518,6 +497,11 @@
         0 0 0 3px rgba(71, 120, 201, 0.1);
 }
 
+
+/* =========================================================
+   SECTION COUNT
+========================================================= */
+
 .contractor-section-count {
     color: #5e7692;
 
@@ -531,6 +515,7 @@
 
 /* =========================================================
    TABLE HEADER
+   IMPORTANT: 5 COLUMNS
 ========================================================= */
 
 .contractor-table-header {
@@ -540,15 +525,24 @@
 
     display: grid;
 
+    /*
+        COLUMN 1 = Complaint & Location
+        COLUMN 2 = Status
+        COLUMN 3 = SLA / Criticality
+        COLUMN 4 = Assigned Contractor
+        COLUMN 5 = Actions
+    */
+
     grid-template-columns:
-        minmax(0, 2.3fr)
-        0.6fr
-        0.95fr
-        1fr;
+        minmax(0, 2.25fr)
+        minmax(85px, 0.65fr)
+        minmax(145px, 0.95fr)
+        minmax(145px, 1fr)
+        minmax(140px, 0.95fr);
 
     align-items: center;
 
-    gap: 25px;
+    gap: 20px;
 
     background: #f6f8fb;
 
@@ -563,6 +557,10 @@
     font-weight: 850;
 }
 
+.contractor-table-header > div {
+    min-width: 0;
+}
+
 
 /* =========================================================
    PROJECT LIST
@@ -572,33 +570,45 @@
     display: flex;
 
     flex-direction: column;
+
+    width: 100%;
 }
 
 
 /* =========================================================
-   PROJECT ROW
+   PROJECT CARD / ROW
+   IMPORTANT: SAME 5 COLUMNS AS HEADER
 ========================================================= */
 
 .contractor-project-card {
+    width: 100%;
+
     min-height: 170px;
 
-    padding: 18px 30px;
+    padding: 20px 30px;
 
     display: grid;
 
     grid-template-columns:
-        minmax(0, 2.3fr)
-        0.6fr
-        0.95fr
-        1fr;
+        minmax(0, 2.25fr)
+        minmax(85px, 0.65fr)
+        minmax(145px, 0.95fr)
+        minmax(145px, 1fr)
+        minmax(140px, 0.95fr);
 
     align-items: center;
 
-    gap: 25px;
+    gap: 20px;
 
     background: #ffffff;
 
     border-bottom: 1px solid #e5eaf0;
+
+    box-sizing: border-box;
+}
+
+.contractor-project-card > * {
+    min-width: 0;
 }
 
 .contractor-project-card:last-child {
@@ -646,6 +656,8 @@
     position: relative;
 
     cursor: pointer;
+
+    flex-shrink: 0;
 }
 
 .contractor-project-image img {
@@ -793,6 +805,8 @@
 
 .contractor-project-info {
     min-width: 0;
+
+    width: 100%;
 }
 
 .contractor-id-category {
@@ -803,6 +817,10 @@
     gap: 8px;
 
     margin-bottom: 8px;
+
+    min-width: 0;
+
+    flex-wrap: wrap;
 }
 
 .contractor-complaint-id {
@@ -811,6 +829,8 @@
     font-size: 12px;
 
     font-weight: 850;
+
+    white-space: nowrap;
 }
 
 .contractor-category-badge {
@@ -825,6 +845,8 @@
     font-size: 10px;
 
     font-weight: 700;
+
+    white-space: nowrap;
 }
 
 .contractor-project-info h3 {
@@ -877,13 +899,42 @@
 
 
 /* =========================================================
+   ESCALATION
+========================================================= */
+
+.contractor-escalation-alert {
+    margin-top: 8px;
+
+    padding: 7px 9px;
+
+    border-radius: 7px;
+
+    background: #fff4e8;
+
+    color: #b45309;
+
+    border: 1px solid #fed7aa;
+
+    font-size: 10px;
+
+    line-height: 1.4;
+
+    font-weight: 700;
+}
+
+
+/* =========================================================
    STATUS
 ========================================================= */
 
 .contractor-status-column {
+    min-width: 0;
+
     display: flex;
 
     align-items: flex-start;
+
+    justify-content: flex-start;
 }
 
 .contractor-status {
@@ -908,6 +959,8 @@
     text-transform: uppercase;
 
     white-space: nowrap;
+
+    max-width: 100%;
 }
 
 .contractor-status.pending {
@@ -949,6 +1002,135 @@
 
 
 /* =========================================================
+   SLA / CRITICALITY
+========================================================= */
+
+.contractor-sla-column,
+.contractor-sla-info,
+.contractor-criticality-column {
+    min-width: 0;
+}
+
+.contractor-sla-column {
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    justify-content: center;
+
+    gap: 8px;
+}
+
+.contractor-criticality {
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 8px 12px;
+
+    border-radius: 20px;
+
+    background: #fff8e8;
+
+    color: #c86b00;
+
+    border: 1px solid #ffd98a;
+
+    font-size: 10px;
+
+    font-weight: 850;
+
+    text-transform: uppercase;
+
+    white-space: nowrap;
+}
+
+.contractor-criticality.low {
+    background: #edf9f2;
+
+    color: #168653;
+
+    border-color: #b9e7ca;
+}
+
+.contractor-criticality.medium {
+    background: #fff8e8;
+
+    color: #c86b00;
+
+    border-color: #ffd98a;
+}
+
+.contractor-criticality.high {
+    background: #fff0e8;
+
+    color: #c94b18;
+
+    border-color: #ffc6a8;
+}
+
+.contractor-criticality.critical {
+    background: #fff0f0;
+
+    color: #c62828;
+
+    border-color: #ffb4b4;
+}
+
+.contractor-sla-remaining {
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 8px 11px;
+
+    border: 1px solid #75b4ff;
+
+    border-radius: 8px;
+
+    background: #f1f7ff;
+
+    color: #1261c9;
+
+    font-size: 10px;
+
+    font-weight: 800;
+
+    white-space: nowrap;
+
+    max-width: 100%;
+}
+
+.contractor-sla-due {
+    color: #66809e;
+
+    font-size: 10px;
+
+    line-height: 1.4;
+
+    white-space: nowrap;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    max-width: 100%;
+}
+
+.contractor-sla-expired {
+    color: #c62828;
+
+    font-weight: 800;
+}
+
+
+/* =========================================================
    ASSIGNED CONTRACTOR
 ========================================================= */
 
@@ -959,10 +1141,18 @@
 
     flex-direction: column;
 
+    align-items: flex-start;
+
+    justify-content: center;
+
     gap: 6px;
 }
 
 .contractor-assigned-column strong {
+    display: block;
+
+    width: 100%;
+
     color: #173653;
 
     font-size: 12px;
@@ -984,6 +1174,8 @@
     color: #8192a6;
 
     font-size: 10px;
+
+    line-height: 1.4;
 }
 
 
@@ -994,17 +1186,23 @@
 .contractor-project-actions {
     min-width: 0;
 
+    width: 100%;
+
     display: flex;
 
     flex-direction: column;
 
     align-items: stretch;
 
+    justify-content: center;
+
     gap: 8px;
 }
 
 .contractor-project-actions button {
     width: 100%;
+
+    min-width: 0;
 
     min-height: 38px;
 
@@ -1019,6 +1217,8 @@
     font-weight: 800;
 
     cursor: pointer;
+
+    box-sizing: border-box;
 
     transition:
         background 0.2s ease,
@@ -1162,6 +1362,8 @@
     border-radius: 50%;
 
     background: #2563eb;
+
+    flex-shrink: 0;
 }
 
 
@@ -1294,7 +1496,7 @@
 
 
 /* =========================================================
-   COMPLETED
+   COMPLETED / OTHER ASSIGNMENT
 ========================================================= */
 
 .completed-label,
@@ -1304,6 +1506,8 @@
     align-items: center;
 
     justify-content: center;
+
+    width: 100%;
 
     min-height: 38px;
 
@@ -1330,7 +1534,7 @@
 
 
 /* =========================================================
-   EMPTY
+   EMPTY / LOADING
 ========================================================= */
 
 .contractor-empty {
@@ -1366,7 +1570,6 @@
 }
 
 @keyframes contractor-spin {
-
     from {
         transform: rotate(0deg);
     }
@@ -1374,7 +1577,6 @@
     to {
         transform: rotate(360deg);
     }
-
 }
 
 .contractor-empty h3 {
@@ -1607,15 +1809,33 @@
             repeat(2, minmax(0, 1fr));
     }
 
+    /*
+       Still 5 columns.
+       We reduce their minimum widths and gaps.
+    */
+
     .contractor-table-header,
     .contractor-project-card {
         grid-template-columns:
-            minmax(0, 2fr)
-            0.6fr
-            0.85fr
-            0.9fr;
+            minmax(0, 1.9fr)
+            minmax(75px, 0.6fr)
+            minmax(120px, 0.9fr)
+            minmax(125px, 0.9fr)
+            minmax(115px, 0.85fr);
 
-        gap: 16px;
+        gap: 14px;
+    }
+
+    .contractor-table-header {
+        padding-left: 20px;
+        padding-right: 20px;
+
+        font-size: 10px;
+    }
+
+    .contractor-project-card {
+        padding-left: 20px;
+        padding-right: 20px;
     }
 
     .contractor-complaint-main {
@@ -1629,6 +1849,10 @@
         width: 90px;
 
         height: 75px;
+    }
+
+    .contractor-project-info h3 {
+        font-size: 14px;
     }
 
     .contractor-section-header {
@@ -1683,8 +1907,24 @@
         display: none;
     }
 
+    .contractor-header-right {
+        gap: 8px;
+    }
+
+    .contractor-logout-btn {
+        min-width: auto;
+
+        padding: 9px 13px;
+
+        font-size: 11px;
+    }
+
     .contractor-main {
         padding: 30px 14px 45px;
+    }
+
+    .contractor-dashboard-intro {
+        margin-bottom: 22px;
     }
 
     .contractor-dashboard-intro h1 {
@@ -1693,10 +1933,14 @@
 
     .contractor-dashboard-intro p {
         font-size: 13px;
+
+        line-height: 1.5;
     }
 
 
-    /* STATS */
+    /* =====================================================
+       STATS
+    ===================================================== */
 
     .contractor-stats {
         grid-template-columns:
@@ -1716,10 +1960,24 @@
     }
 
 
-    /* SECTION */
+    /* =====================================================
+       SECTION
+    ===================================================== */
 
     .contractor-section-header {
         padding: 22px 18px;
+
+        gap: 18px;
+    }
+
+    .contractor-section-header h2 {
+        font-size: 20px;
+    }
+
+    .contractor-section-header p {
+        font-size: 12px;
+
+        line-height: 1.5;
     }
 
     .contractor-section-controls {
@@ -1747,14 +2005,18 @@
     }
 
 
-    /* TABLE HEADER */
+    /* =====================================================
+       TABLE HEADER
+    ===================================================== */
 
     .contractor-table-header {
         display: none;
     }
 
 
-    /* CARD */
+    /* =====================================================
+       CARD
+    ===================================================== */
 
     .contractor-project-card {
         display: flex;
@@ -1766,10 +2028,14 @@
         gap: 15px;
 
         padding: 17px;
+
+        min-height: auto;
     }
 
 
-    /* COMPLAINT */
+    /* =====================================================
+       COMPLAINT
+    ===================================================== */
 
     .contractor-complaint-main {
         grid-template-columns:
@@ -1784,18 +2050,68 @@
         height: 90px;
     }
 
+    .contractor-project-info h3 {
+        font-size: 14px;
+    }
 
-    /* STATUS */
+    .contractor-location {
+        white-space: normal;
+
+        display: -webkit-box;
+
+        -webkit-line-clamp: 2;
+
+        -webkit-box-orient: vertical;
+
+        overflow: hidden;
+    }
+
+    .contractor-meta {
+        white-space: normal;
+    }
+
+
+    /* =====================================================
+       STATUS
+    ===================================================== */
 
     .contractor-status-column {
         align-items: flex-start;
     }
 
 
-    /* ACTIONS */
+    /* =====================================================
+       SLA
+    ===================================================== */
+
+    .contractor-sla-column {
+        width: 100%;
+
+        align-items: flex-start;
+    }
+
+
+    /* =====================================================
+       ASSIGNED
+    ===================================================== */
+
+    .contractor-assigned-column {
+        width: 100%;
+    }
+
+
+    /* =====================================================
+       ACTIONS
+    ===================================================== */
 
     .contractor-project-actions {
         width: 100%;
+    }
+
+    .contractor-project-actions button {
+        min-height: 42px;
+
+        font-size: 11px;
     }
 
     .work-upload-box {
@@ -1803,7 +2119,9 @@
     }
 
 
-    /* MODAL */
+    /* =====================================================
+       MODAL
+    ===================================================== */
 
     .contractor-media-modal {
         padding: 10px;
@@ -1858,6 +2176,11 @@
         font-size: 9px;
     }
 
+
+    /* =====================================================
+       COMPLAINT
+    ===================================================== */
+
     .contractor-complaint-main {
         grid-template-columns:
             90px minmax(0, 1fr);
@@ -1881,11 +2204,21 @@
         padding: 5px 7px;
     }
 
+
+    /* =====================================================
+       TABS
+    ===================================================== */
+
     .contractor-view-tab {
         padding: 8px 5px;
 
         font-size: 10px;
     }
+
+
+    /* =====================================================
+       MODAL
+    ===================================================== */
 
     .contractor-media-modal {
         padding: 8px;
@@ -1913,4 +2246,680 @@
         max-height:
             calc(95vh - 55px);
     }
+}
+
+
+/* =========================================================
+   EXTRA SAFETY FOR VERY SMALL SCREENS
+========================================================= */
+
+@media (max-width: 360px) {
+
+    .contractor-main {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .contractor-project-card {
+        padding: 13px;
+    }
+
+    .contractor-complaint-main {
+        grid-template-columns:
+            78px minmax(0, 1fr);
+
+        gap: 9px;
+    }
+
+    .contractor-project-image {
+        width: 78px;
+
+        height: 68px;
+    }
+
+    .contractor-project-info h3 {
+        font-size: 12px;
+    }
+
+    .contractor-complaint-id {
+        font-size: 11px;
+    }
+
+    .contractor-category-badge {
+        font-size: 8px;
+
+        padding: 4px 6px;
+    }
+
+    .contractor-status {
+        font-size: 8px;
+
+        padding: 6px 9px;
+    }
+
+    .contractor-criticality {
+        font-size: 9px;
+
+        padding: 7px 9px;
+    }
+
+    .contractor-sla-remaining {
+        font-size: 9px;
+
+        padding: 7px 8px;
+    }
+}
+
+/* =========================================================
+   FINAL CONTRACTOR TABLE ALIGNMENT FIX
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   5-COLUMN HEADER
+--------------------------------------------------------- */
+
+.contractor-table-header {
+    display: grid;
+
+    grid-template-columns:
+        minmax(500px, 2.2fr)
+        0.6fr
+        1fr
+        1fr
+        0.9fr;
+
+    align-items: center;
+
+    gap: 20px;
+
+    padding: 0 30px;
+
+    min-height: 67px;
+
+    box-sizing: border-box;
+}
+
+
+/* ---------------------------------------------------------
+   5-COLUMN PROJECT ROW
+--------------------------------------------------------- */
+
+.contractor-project-card {
+    display: grid;
+
+    grid-template-columns:
+        minmax(500px, 2.2fr)
+        0.6fr
+        1fr
+        1fr
+        0.9fr;
+
+    align-items: center;
+
+    gap: 20px;
+
+    padding: 22px 30px;
+
+    box-sizing: border-box;
+
+    min-width: 0;
+}
+
+
+/* ---------------------------------------------------------
+   COMPLAINT + IMAGE
+--------------------------------------------------------- */
+
+.contractor-complaint-main {
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+        120px
+        minmax(0, 1fr);
+
+    gap: 18px;
+
+    align-items: start;
+}
+
+
+/* ---------------------------------------------------------
+   IMAGE
+--------------------------------------------------------- */
+
+.contractor-project-image {
+    width: 120px;
+    height: 100px;
+
+    margin-top: 2px;
+
+    border-radius: 9px;
+
+    overflow: hidden;
+
+    flex-shrink: 0;
+}
+
+
+/* ---------------------------------------------------------
+   COMPLAINT INFORMATION
+--------------------------------------------------------- */
+
+.contractor-project-info {
+    min-width: 0;
+
+    padding-top: 0;
+}
+
+.contractor-project-info h3 {
+    margin-top: 0;
+}
+
+
+/* ---------------------------------------------------------
+   STATUS
+--------------------------------------------------------- */
+
+.contractor-status-column {
+    min-width: 0;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+}
+
+.contractor-status {
+    white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+   SLA / CRITICALITY
+--------------------------------------------------------- */
+
+.contractor-sla-column {
+    min-width: 0;
+
+    width: 100%;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    justify-content: center;
+
+    gap: 8px;
+
+    box-sizing: border-box;
+}
+
+
+/* CRITICALITY */
+
+.contractor-priority-badge {
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: fit-content;
+
+    min-width: 82px;
+
+    padding: 6px 12px;
+
+    border-radius: 999px;
+
+    font-size: 11px;
+
+    font-weight: 800;
+
+    line-height: 1;
+
+    white-space: nowrap;
+
+    box-sizing: border-box;
+}
+
+
+/* MEDIUM */
+
+.contractor-priority-badge.medium {
+    background: #fff7ed;
+
+    color: #b54708;
+
+    border: 1px solid #fed7aa;
+}
+
+
+/* CRITICAL */
+
+.contractor-priority-badge.critical {
+    background: #fff1f2;
+
+    color: #b42318;
+
+    border: 1px solid #fecdca;
+}
+
+
+/* LOW */
+
+.contractor-priority-badge.low {
+    background: #ecfdf3;
+
+    color: #027a48;
+
+    border: 1px solid #abefc6;
+}
+
+
+/* ---------------------------------------------------------
+   SLA BADGE
+--------------------------------------------------------- */
+
+.contractor-sla-badge {
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: flex-start;
+
+    width: fit-content;
+
+    max-width: 100%;
+
+    padding: 6px 9px;
+
+    border-radius: 7px;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    line-height: 1.25;
+
+    white-space: nowrap;
+
+    box-sizing: border-box;
+}
+
+
+/* ACTIVE */
+
+.contractor-sla-badge.sla-active {
+    background: #eff8ff;
+
+    color: #175cd3;
+
+    border: 1px solid #b2ddff;
+}
+
+
+/* WARNING */
+
+.contractor-sla-badge.sla-warning {
+    background: #fffaeb;
+
+    color: #b54708;
+
+    border: 1px solid #fedf89;
+}
+
+
+/* OVERDUE */
+
+.contractor-sla-badge.sla-overdue {
+    background: #fef3f2;
+
+    color: #b42318;
+
+    border: 1px solid #fecdca;
+
+    animation:
+        contractor-sla-pulse
+        1.8s
+        ease-in-out
+        infinite;
+}
+
+
+/* COMPLETED */
+
+.contractor-sla-badge.sla-completed {
+    background: #ecfdf3;
+
+    color: #027a48;
+
+    border: 1px solid #abefc6;
+}
+
+
+/* UNKNOWN */
+
+.contractor-sla-badge.sla-unknown {
+    background: #f2f4f7;
+
+    color: #475467;
+
+    border: 1px solid #d0d5dd;
+}
+
+
+/* ---------------------------------------------------------
+   DUE DATE
+--------------------------------------------------------- */
+
+.contractor-due-date {
+    display: block;
+
+    width: 100%;
+
+    color: #667085;
+
+    font-size: 11px;
+
+    line-height: 1.4;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* ---------------------------------------------------------
+   ASSIGNED CONTRACTOR
+--------------------------------------------------------- */
+
+.contractor-assigned-column {
+    min-width: 0;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    justify-content: center;
+
+    gap: 5px;
+}
+
+.contractor-assigned-column strong {
+    max-width: 100%;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+}
+
+.contractor-assigned-column span {
+    font-size: 11px;
+
+    color: #71839a;
+
+    line-height: 1.3;
+}
+
+
+/* ---------------------------------------------------------
+   ACTIONS
+--------------------------------------------------------- */
+
+.contractor-project-actions {
+    min-width: 0;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: stretch;
+
+    justify-content: center;
+
+    gap: 10px;
+}
+
+
+.contractor-project-actions > button {
+    width: 100%;
+
+    min-height: 46px;
+
+    box-sizing: border-box;
+
+    white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+   WORK UPLOAD BOX
+--------------------------------------------------------- */
+
+.work-upload-box {
+    width: 100%;
+
+    box-sizing: border-box;
+}
+
+
+/* ---------------------------------------------------------
+   ESCALATION
+--------------------------------------------------------- */
+
+.contractor-escalation-alert {
+    margin-top: 8px;
+
+    padding: 8px 10px;
+
+    border-radius: 7px;
+
+    background: #fef3f2;
+
+    border: 1px solid #fecdca;
+
+    color: #b42318;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    line-height: 1.4;
+}
+
+
+/* ---------------------------------------------------------
+   SLA PULSE
+--------------------------------------------------------- */
+
+@keyframes contractor-sla-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.65;
+    }
+}
+
+
+/* =========================================================
+   TABLET
+========================================================= */
+
+@media (max-width: 1250px) {
+
+    .contractor-table-header,
+    .contractor-project-card {
+
+        grid-template-columns:
+            minmax(400px, 2fr)
+            0.6fr
+            1fr
+            0.9fr
+            0.85fr;
+
+        gap: 15px;
+    }
+
+
+    .contractor-project-image {
+        width: 105px;
+        height: 85px;
+    }
+
+
+    .contractor-complaint-main {
+        grid-template-columns:
+            105px
+            minmax(0, 1fr);
+
+        gap: 14px;
+    }
+
+}
+
+
+/* =========================================================
+   SMALLER SCREEN
+========================================================= */
+
+@media (max-width: 1100px) {
+
+    .contractor-table-header {
+        display: none;
+    }
+
+
+    .contractor-project-card {
+
+        display: flex;
+
+        flex-direction: column;
+
+        align-items: stretch;
+
+        gap: 18px;
+
+        padding: 20px;
+    }
+
+
+    .contractor-complaint-main {
+
+        display: grid;
+
+        grid-template-columns:
+            120px
+            minmax(0, 1fr);
+
+        align-items: start;
+
+        gap: 18px;
+    }
+
+
+    .contractor-sla-column {
+        width: 100%;
+
+        align-items: flex-start;
+    }
+
+
+    .contractor-status-column {
+        align-items: flex-start;
+
+        justify-content: flex-start;
+
+        text-align: left;
+    }
+
+
+    .contractor-assigned-column {
+        align-items: flex-start;
+    }
+
+
+    .contractor-project-actions {
+        width: 100%;
+    }
+
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 700px) {
+
+    .contractor-project-card {
+        padding: 16px;
+    }
+
+
+    .contractor-complaint-main {
+
+        grid-template-columns:
+            100px
+            minmax(0, 1fr);
+
+        gap: 13px;
+    }
+
+
+    .contractor-project-image {
+        width: 100px;
+        height: 85px;
+    }
+
+
+    .contractor-sla-column {
+        width: 100%;
+    }
+
+
+    .contractor-sla-badge {
+        white-space: normal;
+    }
+
+
+    .contractor-project-actions > button {
+        width: 100%;
+    }
+
+}
+
+
+/* =========================================================
+   VERY SMALL MOBILE
+========================================================= */
+
+@media (max-width: 480px) {
+
+    .contractor-complaint-main {
+
+        grid-template-columns: 1fr;
+
+    }
+
+
+    .contractor-project-image {
+
+        width: 100%;
+
+        height: 180px;
+    }
+
 }

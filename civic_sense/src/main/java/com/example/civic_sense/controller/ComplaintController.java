@@ -9,6 +9,7 @@ import com.example.civic_sense.repository.ComplaintRepository;
 import com.example.civic_sense.repository.LikeRepository;
 import com.example.civic_sense.repository.UserRepository;
 import com.example.civic_sense.repository.WorkPhotoRepository;
+import com.example.civic_sense.service.ComplaintSlaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -36,6 +37,7 @@ public class ComplaintController {
     private final UserRepository userRepository;
     private final LikeRepository likeRepository;
     private final WorkPhotoRepository workPhotoRepository;
+    private final ComplaintSlaService complaintSlaService;
 
     // =====================================================
     // CONSTRUCTOR
@@ -45,14 +47,15 @@ public class ComplaintController {
             ComplaintRepository complaintRepository,
             UserRepository userRepository,
             LikeRepository likeRepository,
-            WorkPhotoRepository workPhotoRepository) {
+            WorkPhotoRepository workPhotoRepository,
+            ComplaintSlaService complaintSlaService) {
 
         this.complaintRepository = complaintRepository;
         this.userRepository = userRepository;
         this.likeRepository = likeRepository;
         this.workPhotoRepository = workPhotoRepository;
+        this.complaintSlaService = complaintSlaService;
     }
-
 
     // =====================================================
     // CREATE COMPLAINT
@@ -63,34 +66,83 @@ public class ComplaintController {
             @RequestBody Complaint complaint,
             Principal principal) {
 
+        // =================================================
+        // GET LOGGED-IN CITIZEN
+        // =================================================
+
         String email = principal.getName();
 
         User user = userRepository
                 .findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found"
-                        ));
+                        new RuntimeException("User not found"));
 
-        // Citizen who created complaint
+        // =================================================
+        // SET CITIZEN
+        // =================================================
+
         complaint.setUser(user);
 
-        // Every new complaint starts pending
+        // =================================================
+        // EVERY NEW COMPLAINT STARTS AS PENDING
+        // =================================================
+
         complaint.setStatus("PENDING");
 
-        // Default priority
-        if (complaint.getPriority() == null ||
-                complaint.getPriority().isBlank()) {
+        // =================================================
+        // CATEGORY-BASED PRIORITY
+        // =================================================
 
-            complaint.setPriority("MEDIUM");
-        }
+        String priority =
+                complaintSlaService.getPriority(
+                        complaint.getCategory()
+                );
 
-        // No contractor initially
+        complaint.setPriority(priority);
+
+        // =================================================
+        // CREATE TIME
+        // =================================================
+
+        LocalDateTime createdAt =
+                LocalDateTime.now();
+
+        complaint.setCreatedAt(createdAt);
+
+        // =================================================
+        // CATEGORY-BASED SLA
+        // =================================================
+
+        int resolutionDays =
+                complaintSlaService.getResolutionDays(
+                        complaint.getCategory()
+                );
+
+        LocalDateTime dueAt =
+                createdAt.plusDays(resolutionDays);
+
+        complaint.setDueAt(dueAt);
+
+        // =================================================
+        // ESCALATION DEFAULT
+        // =================================================
+
+        complaint.setEscalated(false);
+
+        complaint.setEscalatedAt(null);
+
+        // =================================================
+        // NO CONTRACTOR INITIALLY
+        // =================================================
+
         complaint.setContractor(null);
+
+        // =================================================
+        // SAVE COMPLAINT
+        // =================================================
 
         return complaintRepository.save(complaint);
     }
-
 
     // =====================================================
     // GET ALL COMPLAINTS
@@ -118,7 +170,6 @@ public class ComplaintController {
         return complaints;
     }
 
-
     // =====================================================
     // GET MY COMPLAINTS
     // Logged-in citizen complaints
@@ -133,14 +184,11 @@ public class ComplaintController {
         User user = userRepository
                 .findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found"
-                        ));
+                        new RuntimeException("User not found"));
 
         List<Complaint> complaints =
                 complaintRepository.findByUser(user);
 
-        // Add like count + current user's like status
         addLikeInformation(
                 complaints,
                 user
@@ -148,7 +196,6 @@ public class ComplaintController {
 
         return complaints;
     }
-
 
     // =====================================================
     // GET CONTRACTOR ASSIGNED COMPLAINTS
@@ -163,14 +210,11 @@ public class ComplaintController {
         User contractor = userRepository
                 .findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "Contractor not found"
-                        ));
+                        new RuntimeException("Contractor not found"));
 
         return complaintRepository
                 .findByContractor(contractor);
     }
-
 
     // =====================================================
     // GET RECENT COMPLAINTS
@@ -189,11 +233,8 @@ public class ComplaintController {
         User user = userRepository
                 .findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found"
-                        ));
+                        new RuntimeException("User not found"));
 
-        // Add like count + current user's like status
         addLikeInformation(
                 complaints,
                 user
@@ -201,7 +242,6 @@ public class ComplaintController {
 
         return complaints;
     }
-
 
     // =====================================================
     // ADD LIKE INFORMATION TO COMPLAINTS
@@ -291,7 +331,6 @@ public class ComplaintController {
         }
     }
 
-
     // =====================================================
     // GET NEARBY COMPLAINTS
     //
@@ -341,7 +380,10 @@ public class ComplaintController {
 
         for (Complaint complaint : allComplaints) {
 
-            // Skip complaints without GPS
+            // =========================================
+            // SKIP COMPLAINTS WITHOUT GPS
+            // =========================================
+
             if (complaint.getLatitude() == null ||
                     complaint.getLongitude() == null) {
 
@@ -446,7 +488,6 @@ public class ComplaintController {
         return nearbyComplaints;
     }
 
-
     // =====================================================
     // GET SINGLE COMPLAINT
     // =====================================================
@@ -462,7 +503,6 @@ public class ComplaintController {
                                 "Complaint not found"
                         ));
     }
-
 
     // =====================================================
     // VERIFY COMPLAINT
@@ -495,7 +535,6 @@ public class ComplaintController {
                 complaint
         );
     }
-
 
     // =====================================================
     // ASSIGN CONTRACTOR
@@ -567,7 +606,6 @@ public class ComplaintController {
                 complaint
         );
     }
-
 
     // =====================================================
     // START WORK
@@ -644,7 +682,6 @@ public class ComplaintController {
         );
     }
 
-
     // =====================================================
     // COMPLETE WORK
     // IN_PROGRESS -> COMPLETED
@@ -720,7 +757,6 @@ public class ComplaintController {
         );
     }
 
-
     // =====================================================
     // RESOLVE COMPLAINT
     // COMPLETED -> RESOLVED
@@ -754,7 +790,6 @@ public class ComplaintController {
                 complaint
         );
     }
-
 
     // =====================================================
     // UPLOAD / SAVE CONTRACTOR WORK PHOTOS
@@ -899,7 +934,6 @@ public class ComplaintController {
         );
     }
 
-
     // =====================================================
     // GET CONTRACTOR WORK PHOTOS
     //
@@ -932,7 +966,6 @@ public class ComplaintController {
                 photos
         );
     }
-
 
     // =====================================================
     // HAVERSINE DISTANCE CALCULATION

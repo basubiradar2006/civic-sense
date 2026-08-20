@@ -51,8 +51,79 @@ function Citizen() {
     // =====================================================
 
     useEffect(() => {
+        const MY_COMPLAINTS_CACHE_KEY =
+            "citizenMyComplaints";
+
+        const RECENT_COMPLAINTS_CACHE_KEY =
+            "citizenRecentComplaints";
+
+        const cachedMyComplaints =
+            sessionStorage.getItem(
+                MY_COMPLAINTS_CACHE_KEY
+            );
+
+        const cachedRecentComplaints =
+            sessionStorage.getItem(
+                RECENT_COMPLAINTS_CACHE_KEY
+            );
+
+        // Show cached data immediately when returning
+        // from the complaint details page.
+        if (cachedMyComplaints) {
+            try {
+                const parsedMyComplaints =
+                    JSON.parse(cachedMyComplaints);
+
+                if (Array.isArray(parsedMyComplaints)) {
+                    setMyComplaints(parsedMyComplaints);
+                }
+            } catch (error) {
+                console.error(
+                    "Failed to read cached citizen complaints:",
+                    error
+                );
+
+                sessionStorage.removeItem(
+                    MY_COMPLAINTS_CACHE_KEY
+                );
+            }
+        }
+
+        if (cachedRecentComplaints) {
+            try {
+                const parsedRecentComplaints =
+                    JSON.parse(cachedRecentComplaints);
+
+                if (Array.isArray(parsedRecentComplaints)) {
+                    setRecentComplaints(
+                        parsedRecentComplaints
+                    );
+                }
+            } catch (error) {
+                console.error(
+                    "Failed to read cached recent complaints:",
+                    error
+                );
+
+                sessionStorage.removeItem(
+                    RECENT_COMPLAINTS_CACHE_KEY
+                );
+            }
+        }
+
+        const hasCachedData =
+            !!cachedMyComplaints ||
+            !!cachedRecentComplaints;
+
+        // If we have cached data, don't show the full-page
+        // loading screen again when returning from View Details.
+        if (hasCachedData) {
+            setLoading(false);
+        }
+
         const fetchComplaints = async () => {
-            const token = localStorage.getItem("token");
+            const token =
+                localStorage.getItem("token");
 
             if (!token) {
                 navigate("/");
@@ -60,26 +131,40 @@ function Citizen() {
             }
 
             try {
-                setLoading(true);
+                // Only show loading on the first visit.
+                if (!hasCachedData) {
+                    setLoading(true);
+                }
+
                 setError("");
 
                 const [myResponse, recentResponse] =
                     await Promise.all([
-                        fetch(`${API_URL}/api/complaints/my`, {
-                            method: "GET",
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                                "Content-Type": "application/json",
-                            },
-                        }),
+                        fetch(
+                            `${API_URL}/api/complaints/my`,
+                            {
+                                method: "GET",
+                                headers: {
+                                    Authorization:
+                                        `Bearer ${token}`,
+                                    "Content-Type":
+                                        "application/json",
+                                },
+                            }
+                        ),
 
-                        fetch(`${API_URL}/api/complaints/recent`, {
-                            method: "GET",
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                                "Content-Type": "application/json",
-                            },
-                        }),
+                        fetch(
+                            `${API_URL}/api/complaints/recent`,
+                            {
+                                method: "GET",
+                                headers: {
+                                    Authorization:
+                                        `Bearer ${token}`,
+                                    "Content-Type":
+                                        "application/json",
+                                },
+                            }
+                        ),
                     ]);
 
                 // =================================================
@@ -94,6 +179,12 @@ function Citizen() {
                 ) {
                     localStorage.removeItem("token");
                     localStorage.removeItem("user");
+                    sessionStorage.removeItem(
+                        MY_COMPLAINTS_CACHE_KEY
+                    );
+                    sessionStorage.removeItem(
+                        RECENT_COMPLAINTS_CACHE_KEY
+                    );
 
                     navigate("/");
                     return;
@@ -104,7 +195,8 @@ function Citizen() {
                 // =================================================
 
                 if (!myResponse.ok) {
-                    const errorText = await myResponse.text();
+                    const errorText =
+                        await myResponse.text();
 
                     console.error(
                         "My complaints error:",
@@ -138,26 +230,55 @@ function Citizen() {
                 // JSON
                 // =================================================
 
-                const myData = await myResponse.json();
+                const myData =
+                    await myResponse.json();
+
                 const recentData =
                     await recentResponse.json();
 
-                console.log("My Complaints:", myData);
+                console.log(
+                    "My Complaints:",
+                    myData
+                );
+
                 console.log(
                     "Recent Complaints:",
                     recentData
                 );
 
-                setMyComplaints(
+                const freshMyComplaints =
                     Array.isArray(myData)
                         ? myData
-                        : []
+                        : [];
+
+                const freshRecentComplaints =
+                    Array.isArray(recentData)
+                        ? recentData
+                        : [];
+
+                // Update UI with fresh data.
+                setMyComplaints(
+                    freshMyComplaints
                 );
 
                 setRecentComplaints(
-                    Array.isArray(recentData)
-                        ? recentData
-                        : []
+                    freshRecentComplaints
+                );
+
+                // Save latest data for instant return
+                // from View Details.
+                sessionStorage.setItem(
+                    MY_COMPLAINTS_CACHE_KEY,
+                    JSON.stringify(
+                        freshMyComplaints
+                    )
+                );
+
+                sessionStorage.setItem(
+                    RECENT_COMPLAINTS_CACHE_KEY,
+                    JSON.stringify(
+                        freshRecentComplaints
+                    )
                 );
             } catch (err) {
                 console.error(
@@ -165,10 +286,14 @@ function Citizen() {
                     err
                 );
 
-                setError(
-                    err.message ||
-                        "Unable to load complaints."
-                );
+                // If cached data exists, keep displaying it.
+                // Only show the error on the first load.
+                if (!hasCachedData) {
+                    setError(
+                        err.message ||
+                            "Unable to load complaints."
+                    );
+                }
             } finally {
                 setLoading(false);
             }
@@ -248,6 +373,15 @@ function Citizen() {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         localStorage.removeItem("username");
+
+        // Clear cached citizen data on logout.
+        sessionStorage.removeItem(
+            "citizenMyComplaints"
+        );
+
+        sessionStorage.removeItem(
+            "citizenRecentComplaints"
+        );
 
         navigate("/");
     };

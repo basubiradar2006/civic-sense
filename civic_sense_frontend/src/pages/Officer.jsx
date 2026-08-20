@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Officer.css";
 import ComplaintLike from "../components/ComplaintLike";
+import NotificationBell from "../components/NotificationBell";
 
 function Officer() {
     const navigate = useNavigate();
@@ -28,6 +29,21 @@ function Officer() {
     const [updatingId, setUpdatingId] = useState(null);
 
     // =====================================================
+    // SLA CLOCK
+    // Refreshes remaining time every minute
+    // =====================================================
+
+    const [, setCurrentTime] = useState(Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 60000);
+
+        return () => clearInterval(timer);
+    }, []);
+
+    // =====================================================
     // PHOTO / VIDEO MODAL
     // =====================================================
 
@@ -38,8 +54,79 @@ function Officer() {
     // =====================================================
 
     useEffect(() => {
+        const COMPLAINTS_CACHE_KEY =
+            "officerComplaints";
+
+        const CONTRACTORS_CACHE_KEY =
+            "officerContractors";
+
+        const cachedComplaints =
+            sessionStorage.getItem(
+                COMPLAINTS_CACHE_KEY
+            );
+
+        const cachedContractors =
+            sessionStorage.getItem(
+                CONTRACTORS_CACHE_KEY
+            );
+
+        // =================================================
+        // SHOW CACHED COMPLAINTS
+        // =================================================
+
+        if (cachedComplaints) {
+            try {
+                const parsedComplaints =
+                    JSON.parse(cachedComplaints);
+
+                if (Array.isArray(parsedComplaints)) {
+                    setComplaints(parsedComplaints);
+                    setHasLoadedOnce(true);
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.error(
+                    "Failed to read cached officer complaints:",
+                    error
+                );
+
+                sessionStorage.removeItem(
+                    COMPLAINTS_CACHE_KEY
+                );
+            }
+        }
+
+        // =================================================
+        // SHOW CACHED CONTRACTORS
+        // =================================================
+
+        if (cachedContractors) {
+            try {
+                const parsedContractors =
+                    JSON.parse(cachedContractors);
+
+                if (Array.isArray(parsedContractors)) {
+                    setContractors(parsedContractors);
+                }
+            } catch (error) {
+                console.error(
+                    "Failed to read cached contractors:",
+                    error
+                );
+
+                sessionStorage.removeItem(
+                    CONTRACTORS_CACHE_KEY
+                );
+            }
+        }
+
+        // =================================================
+        // FETCH FRESH DATA
+        // =================================================
+
         const fetchData = async () => {
-            const token = localStorage.getItem("token");
+            const token =
+                localStorage.getItem("token");
 
             if (!token) {
                 navigate("/");
@@ -47,7 +134,10 @@ function Officer() {
             }
 
             try {
-                setLoading(true);
+                if (!cachedComplaints) {
+                    setLoading(true);
+                }
+
                 setError("");
 
                 const [
@@ -84,6 +174,14 @@ function Officer() {
                     localStorage.removeItem("token");
                     localStorage.removeItem("user");
 
+                    sessionStorage.removeItem(
+                        COMPLAINTS_CACHE_KEY
+                    );
+
+                    sessionStorage.removeItem(
+                        CONTRACTORS_CACHE_KEY
+                    );
+
                     navigate("/");
                     return;
                 }
@@ -106,34 +204,53 @@ function Officer() {
                 const contractorsData =
                     await contractorsResponse.json();
 
-                setComplaints(
+                const freshComplaints =
                     Array.isArray(complaintsData)
                         ? complaintsData
-                        : []
-                );
+                        : [];
 
-                setContractors(
+                const freshContractors =
                     Array.isArray(contractorsData)
                         ? contractorsData
-                        : []
-                );
+                        : [];
+
+                setComplaints(freshComplaints);
+                setContractors(freshContractors);
 
                 setHasLoadedOnce(true);
+
+                sessionStorage.setItem(
+                    COMPLAINTS_CACHE_KEY,
+                    JSON.stringify(
+                        freshComplaints
+                    )
+                );
+
+                sessionStorage.setItem(
+                    CONTRACTORS_CACHE_KEY,
+                    JSON.stringify(
+                        freshContractors
+                    )
+                );
+
             } catch (err) {
                 console.error(
                     "Officer dashboard error:",
                     err
                 );
 
-                setError(
-                    "Unable to load officer dashboard."
-                );
+                if (!cachedComplaints) {
+                    setError(
+                        "Unable to load officer dashboard."
+                    );
+                }
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
+
     }, [API_URL, navigate]);
 
     // =====================================================
@@ -145,6 +262,14 @@ function Officer() {
         localStorage.removeItem("user");
         localStorage.removeItem("username");
 
+        sessionStorage.removeItem(
+            "officerComplaints"
+        );
+
+        sessionStorage.removeItem(
+            "officerContractors"
+        );
+
         navigate("/");
     };
 
@@ -155,21 +280,35 @@ function Officer() {
     const updateComplaintLocally = (
         complaintId,
         newStatus,
-        contractor = undefined
+        contractor = undefined,
+        additionalData = {}
     ) => {
-        setComplaints((previous) =>
-            previous.map((complaint) =>
-                complaint.id === complaintId
-                    ? {
-                        ...complaint,
-                        status: newStatus,
-                        ...(contractor !== undefined
-                            ? { contractor }
-                            : {}),
-                    }
-                    : complaint
-            )
-        );
+
+        setComplaints((previous) => {
+
+            const updated = previous.map(
+                (complaint) =>
+                    complaint.id === complaintId
+                        ? {
+                            ...complaint,
+                            status: newStatus,
+
+                            ...(contractor !== undefined
+                                ? { contractor }
+                                : {}),
+
+                            ...additionalData,
+                        }
+                        : complaint
+            );
+
+            sessionStorage.setItem(
+                "officerComplaints",
+                JSON.stringify(updated)
+            );
+
+            return updated;
+        });
     };
 
     // =====================================================
@@ -177,7 +316,9 @@ function Officer() {
     // =====================================================
 
     const verifyComplaint = async (id) => {
-        const token = localStorage.getItem("token");
+
+        const token =
+            localStorage.getItem("token");
 
         try {
             setUpdatingId(id);
@@ -217,12 +358,14 @@ function Officer() {
                 id,
                 updatedComplaint.status
             );
+
         } catch (err) {
             console.error(err);
 
             alert(
                 "Unable to verify complaint."
             );
+
         } finally {
             setUpdatingId(null);
         }
@@ -235,6 +378,7 @@ function Officer() {
     const assignContractor = async (
         complaintId
     ) => {
+
         const contractorId =
             selectedContractors[complaintId];
 
@@ -242,6 +386,7 @@ function Officer() {
             alert(
                 "Please select a contractor first."
             );
+
             return;
         }
 
@@ -294,12 +439,14 @@ function Officer() {
                 updatedComplaint.status,
                 assignedContractor
             );
+
         } catch (err) {
             console.error(err);
 
             alert(
                 "Unable to assign contractor."
             );
+
         } finally {
             setUpdatingId(null);
         }
@@ -310,6 +457,7 @@ function Officer() {
     // =====================================================
 
     const resolveComplaint = async (id) => {
+
         const token =
             localStorage.getItem("token");
 
@@ -351,12 +499,14 @@ function Officer() {
                 id,
                 updatedComplaint.status
             );
+
         } catch (err) {
             console.error(err);
 
             alert(
                 "Unable to resolve complaint."
             );
+
         } finally {
             setUpdatingId(null);
         }
@@ -370,10 +520,13 @@ function Officer() {
         complaintId,
         contractorId
     ) => {
-        setSelectedContractors((previous) => ({
-            ...previous,
-            [complaintId]: contractorId,
-        }));
+
+        setSelectedContractors(
+            (previous) => ({
+                ...previous,
+                [complaintId]: contractorId,
+            })
+        );
     };
 
     // =====================================================
@@ -381,6 +534,7 @@ function Officer() {
     // =====================================================
 
     const isVideoMedia = (complaint) => {
+
         const mediaType = String(
             complaint?.mediaType || ""
         ).toUpperCase();
@@ -407,6 +561,7 @@ function Officer() {
     // =====================================================
 
     const openMedia = (complaint) => {
+
         if (!complaint?.mediaUrl) {
             return;
         }
@@ -438,7 +593,9 @@ function Officer() {
     // =====================================================
 
     useEffect(() => {
+
         const handleEscape = (event) => {
+
             if (event.key === "Escape") {
                 closeMedia();
             }
@@ -450,12 +607,133 @@ function Officer() {
         );
 
         return () => {
+
             window.removeEventListener(
                 "keydown",
                 handleEscape
             );
         };
+
     }, []);
+
+    // =====================================================
+    // PRIORITY CLASS
+    // =====================================================
+
+    const getPriorityClass = (priority) => {
+
+        if (!priority) {
+            return "low";
+        }
+
+        return String(priority)
+            .toLowerCase()
+            .replace(/\s+/g, "-");
+    };
+
+    // =====================================================
+    // FORMAT SLA DEADLINE
+    // =====================================================
+
+    const formatDueDate = (dueAt) => {
+
+        if (!dueAt) {
+            return "Not available";
+        }
+
+        const date =
+            new Date(dueAt);
+
+        if (
+            Number.isNaN(
+                date.getTime()
+            )
+        ) {
+            return "Not available";
+        }
+
+        return date.toLocaleString();
+    };
+
+    // =====================================================
+    // GET REMAINING SLA TIME
+    // =====================================================
+
+    const getRemainingTime = (dueAt) => {
+
+        if (!dueAt) {
+            return "No deadline";
+        }
+
+        const deadline =
+            new Date(dueAt).getTime();
+
+        const now =
+            Date.now();
+
+        const difference =
+            deadline - now;
+
+        if (difference <= 0) {
+            return "SLA BREACHED";
+        }
+
+        const totalMinutes =
+            Math.floor(
+                difference /
+                (1000 * 60)
+            );
+
+        const days =
+            Math.floor(
+                totalMinutes /
+                (60 * 24)
+            );
+
+        const hours =
+            Math.floor(
+                (
+                    totalMinutes %
+                    (60 * 24)
+                ) / 60
+            );
+
+        const minutes =
+            totalMinutes % 60;
+
+        if (days > 0) {
+            return `${days}d ${hours}h remaining`;
+        }
+
+        if (hours > 0) {
+            return `${hours}h ${minutes}m remaining`;
+        }
+
+        return `${minutes}m remaining`;
+    };
+
+    // =====================================================
+    // CHECK SLA BREACH
+    // =====================================================
+
+    const isSlaBreached = (complaint) => {
+
+        if (
+            complaint?.escalated
+        ) {
+            return true;
+        }
+
+        if (!complaint?.dueAt) {
+            return false;
+        }
+
+        return (
+            new Date(
+                complaint.dueAt
+            ).getTime() <= Date.now()
+        );
+    };
 
     // =====================================================
     // STATISTICS
@@ -506,6 +784,14 @@ function Officer() {
                 "RESOLVED"
         ).length;
 
+    const escalatedComplaints =
+        complaints.filter(
+            (complaint) =>
+                complaint.escalated === true ||
+                complaint.status ===
+                "ESCALATED"
+        ).length;
+
     // =====================================================
     // CATEGORY FILTER
     // =====================================================
@@ -536,8 +822,10 @@ function Officer() {
             label: "Illegal Dumping",
         },
         {
-            value: "Public Property Damage",
-            label: "Public Property Damage",
+            value:
+                "Public Property Damage",
+            label:
+                "Public Property Damage",
         },
         {
             value: "Other",
@@ -559,6 +847,7 @@ function Officer() {
     // =====================================================
 
     const formatCoordinate = (value) => {
+
         if (
             typeof value === "number" &&
             Number.isFinite(value)
@@ -574,6 +863,7 @@ function Officer() {
     // =====================================================
 
     const getStatusClass = (status) => {
+
         if (!status) {
             return "unknown";
         }
@@ -588,6 +878,7 @@ function Officer() {
     // =====================================================
 
     const handleImageError = (event) => {
+
         event.currentTarget.style.display =
             "none";
 
@@ -633,7 +924,7 @@ function Officer() {
                 </div>
 
                 <div className="officer-header-right">
-
+                    <NotificationBell />
                     <span className="officer-user">
 
                         <span className="officer-user-dot">
@@ -661,14 +952,15 @@ function Officer() {
 
             </header>
 
-
             {/* =================================================
                 MAIN
             ================================================= */}
 
             <main className="officer-main">
 
-                {/* WELCOME */}
+                {/* =================================================
+                    WELCOME
+                ================================================= */}
 
                 <section className="officer-welcome">
 
@@ -682,12 +974,11 @@ function Officer() {
 
                     <p>
                         Verify complaints, assign
-                        contractors and confirm
-                        completed work.
+                        contractors and monitor
+                        SLA deadlines.
                     </p>
 
                 </section>
-
 
                 {/* =================================================
                     STATISTICS
@@ -696,6 +987,7 @@ function Officer() {
                 <section className="officer-stats">
 
                     <div className="officer-stat-card stat-total">
+
                         <span className="stat-label">
                             TOTAL COMPLAINTS
                         </span>
@@ -707,9 +999,11 @@ function Officer() {
                         <span className="stat-note">
                             All reported issues
                         </span>
+
                     </div>
 
                     <div className="officer-stat-card stat-pending">
+
                         <span className="stat-label">
                             PENDING TRIAGE
                         </span>
@@ -721,9 +1015,11 @@ function Officer() {
                         <span className="stat-note">
                             Awaiting verification
                         </span>
+
                     </div>
 
                     <div className="officer-stat-card stat-verified">
+
                         <span className="stat-label">
                             VERIFIED
                         </span>
@@ -735,9 +1031,11 @@ function Officer() {
                         <span className="stat-note">
                             Ready for dispatch
                         </span>
+
                     </div>
 
                     <div className="officer-stat-card stat-assigned">
+
                         <span className="stat-label">
                             ASSIGNED
                         </span>
@@ -749,9 +1047,11 @@ function Officer() {
                         <span className="stat-note">
                             Contractor assigned
                         </span>
+
                     </div>
 
                     <div className="officer-stat-card stat-progress">
+
                         <span className="stat-label">
                             ACTIVE REPAIRS
                         </span>
@@ -763,9 +1063,11 @@ function Officer() {
                         <span className="stat-note">
                             Contractors working
                         </span>
+
                     </div>
 
                     <div className="officer-stat-card stat-completed">
+
                         <span className="stat-label">
                             COMPLETED
                         </span>
@@ -777,9 +1079,11 @@ function Officer() {
                         <span className="stat-note">
                             Awaiting confirmation
                         </span>
+
                     </div>
 
                     <div className="officer-stat-card stat-resolved">
+
                         <span className="stat-label">
                             RESOLVED
                         </span>
@@ -791,10 +1095,28 @@ function Officer() {
                         <span className="stat-note">
                             Closed complaints
                         </span>
+
+                    </div>
+
+                    {/* ESCALATED */}
+
+                    <div className="officer-stat-card stat-escalated">
+
+                        <span className="stat-label">
+                            ESCALATED
+                        </span>
+
+                        <strong className="stat-value">
+                            {escalatedComplaints}
+                        </strong>
+
+                        <span className="stat-note">
+                            SLA breached
+                        </span>
+
                     </div>
 
                 </section>
-
 
                 {/* =================================================
                     COMPLAINTS
@@ -817,8 +1139,9 @@ function Officer() {
                             </h2>
 
                             <p>
-                                Review and manage civic
-                                complaints.
+                                Review complaints,
+                                monitor priority and
+                                SLA deadlines.
                             </p>
 
                         </div>
@@ -876,8 +1199,9 @@ function Officer() {
 
                     </div>
 
-
-                    {/* LOADING */}
+                    {/* =================================================
+                        LOADING
+                    ================================================= */}
 
                     {loading && (
                         <div className="officer-empty">
@@ -893,8 +1217,9 @@ function Officer() {
                         </div>
                     )}
 
-
-                    {/* ERROR */}
+                    {/* =================================================
+                        ERROR
+                    ================================================= */}
 
                     {!loading &&
                         error && (
@@ -916,8 +1241,9 @@ function Officer() {
                             </div>
                         )}
 
-
-                    {/* NO COMPLAINTS */}
+                    {/* =================================================
+                        NO COMPLAINTS
+                    ================================================= */}
 
                     {!loading &&
                         !error &&
@@ -939,8 +1265,9 @@ function Officer() {
                             </div>
                         )}
 
-
-                    {/* COMPLAINT LIST */}
+                    {/* =================================================
+                        COMPLAINT LIST
+                    ================================================= */}
 
                     {!loading &&
                         !error &&
@@ -954,12 +1281,16 @@ function Officer() {
                                 <div className="officer-ledger-head">
 
                                     <div>
-                                        COMPLAINT &amp;
+                                        COMPLAINT &
                                         LOCATION
                                     </div>
 
                                     <div>
                                         STATUS
+                                    </div>
+
+                                    <div>
+                                        SLA / CRITICALITY
                                     </div>
 
                                     <div>
@@ -973,8 +1304,9 @@ function Officer() {
 
                                 </div>
 
-
-                                {/* COMPLAINTS */}
+                                {/* =================================================
+                                    COMPLAINTS
+                                ================================================= */}
 
                                 {filteredComplaints.map(
                                     (complaint) => {
@@ -984,9 +1316,18 @@ function Officer() {
                                                 complaint
                                             );
 
+                                        const slaBreached =
+                                            isSlaBreached(
+                                                complaint
+                                            );
+
                                         return (
                                             <div
-                                                className="officer-complaint-card"
+                                                className={`officer-complaint-card ${
+                                                    slaBreached
+                                                        ? "complaint-sla-breached"
+                                                        : ""
+                                                }`}
                                                 key={
                                                     complaint.id
                                                 }
@@ -1018,18 +1359,21 @@ function Officer() {
                                                             onKeyDown={(
                                                                 event
                                                             ) => {
+
                                                                 if (
                                                                     event.key ===
                                                                         "Enter" ||
                                                                     event.key ===
                                                                         " "
                                                                 ) {
+
                                                                     event.preventDefault();
 
                                                                     openMedia(
                                                                         complaint
                                                                     );
                                                                 }
+
                                                             }}
                                                         >
 
@@ -1099,7 +1443,6 @@ function Officer() {
 
                                                         </div>
 
-
                                                         <button
                                                             className="photo-details-btn"
                                                             onClick={() =>
@@ -1117,7 +1460,6 @@ function Officer() {
                                                         </button>
 
                                                     </div>
-
 
                                                     {/* INFORMATION */}
 
@@ -1144,14 +1486,12 @@ function Officer() {
 
                                                         </div>
 
-
-                                                        <h3>
+                                                                                                                <h3>
                                                             {
                                                                 complaint.description ||
                                                                 "No description provided."
                                                             }
                                                         </h3>
-
 
                                                         <p className="officer-location">
 
@@ -1177,7 +1517,6 @@ function Officer() {
 
                                                         </p>
 
-
                                                         <div className="officer-meta-row">
 
                                                             <span>
@@ -1186,9 +1525,12 @@ function Officer() {
                                                                     ? new Date(
                                                                         complaint.capturedAt
                                                                     ).toLocaleString()
-                                                                    : "Unknown"}
+                                                                    : complaint.createdAt
+                                                                        ? new Date(
+                                                                            complaint.createdAt
+                                                                        ).toLocaleString()
+                                                                        : "Unknown"}
                                                             </span>
-
 
                                                             {complaint.user && (
                                                                 <span>
@@ -1204,7 +1546,6 @@ function Officer() {
 
                                                         </div>
 
-
                                                         {complaint.contractor && (
                                                             <p className="officer-contractor">
 
@@ -1217,7 +1558,6 @@ function Officer() {
 
                                                             </p>
                                                         )}
-
 
                                                         {/* ==========================================
                                                             LIKE / EXPERIENCING THIS TOO
@@ -1239,7 +1579,6 @@ function Officer() {
 
                                                 </div>
 
-
                                                 {/* =================================
                                                     STATUS
                                                 ================================= */}
@@ -1257,7 +1596,6 @@ function Officer() {
                                                         }
                                                     </span>
 
-
                                                     {complaint.status ===
                                                         "IN_PROGRESS" && (
 
@@ -1268,8 +1606,70 @@ function Officer() {
 
                                                     )}
 
+                                                    {complaint.escalated && (
+
+                                                        <span className="waiting-label sla-status-label">
+                                                            Higher officer
+                                                            review
+                                                        </span>
+
+                                                    )}
+
                                                 </div>
 
+
+                                                {/* =================================
+                                                    SLA / CRITICALITY
+                                                ================================= */}
+
+                                                <div className="officer-sla-column">
+
+                                                    <span
+                                                        className={`officer-priority-badge ${getPriorityClass(
+                                                            complaint.priority
+                                                        )}`}
+                                                    >
+                                                        {complaint.priority ===
+                                                            "CRITICAL" && "🚨 "}
+                                                        {complaint.priority ===
+                                                            "HIGH" && "🔴 "}
+                                                        {complaint.priority ===
+                                                            "MEDIUM" && "🟡 "}
+                                                        {complaint.priority ===
+                                                            "LOW" && "🟢 "}
+                                                        {complaint.priority || "LOW"}
+                                                    </span>
+
+                                                    <span
+                                                        className={`officer-sla-badge ${
+                                                            slaBreached
+                                                                ? "sla-overdue"
+                                                                : "sla-active"
+                                                        }`}
+                                                    >
+                                                        {getRemainingTime(
+                                                            complaint.dueAt
+                                                        )}
+                                                    </span>
+
+                                                    <span className="officer-due-date">
+                                                        Due: {formatDueDate(
+                                                            complaint.dueAt
+                                                        )}
+                                                    </span>
+
+                                                    {complaint.escalated && (
+                                                        <div className="officer-escalation-alert">
+                                                            <strong>
+                                                                🚨 SLA BREACHED
+                                                            </strong>
+                                                            <span>
+                                                                Escalated for higher-level review
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                </div>
 
                                                 {/* =================================
                                                     CONTRACTOR
@@ -1295,8 +1695,7 @@ function Officer() {
                                                                 ) =>
                                                                     handleContractorChange(
                                                                         complaint.id,
-                                                                        event
-                                                                            .target
+                                                                        event.target
                                                                             .value
                                                                     )
                                                                 }
@@ -1329,7 +1728,6 @@ function Officer() {
                                                                 )}
 
                                                             </select>
-
 
                                                             <button
                                                                 className="assign-btn"
@@ -1379,7 +1777,6 @@ function Officer() {
 
                                                 </div>
 
-
                                                 {/* =================================
                                                     ACTIONS
                                                 ================================= */}
@@ -1409,7 +1806,6 @@ function Officer() {
 
                                                     )}
 
-
                                                     {complaint.status ===
                                                         "COMPLETED" && (
 
@@ -1432,7 +1828,6 @@ function Officer() {
                                                         </button>
 
                                                     )}
-
 
                                                     <button
                                                         className="details-btn"
@@ -1460,7 +1855,6 @@ function Officer() {
 
             </main>
 
-
             {/* =====================================================
                 PHOTO / VIDEO MODAL
             ===================================================== */}
@@ -1487,7 +1881,6 @@ function Officer() {
                             ×
                         </button>
 
-
                         <div className="officer-modal-header">
 
                             <span>
@@ -1504,7 +1897,6 @@ function Officer() {
                             </small>
 
                         </div>
-
 
                         <div className="officer-modal-body">
 

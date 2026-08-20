@@ -18,33 +18,69 @@ function Contractor() {
     // =====================================================
 
     const [projects, setProjects] = useState([]);
+
     const [loading, setLoading] = useState(true);
+
     const [error, setError] = useState("");
 
     // PHOTO / VIDEO MODAL
     const [selectedMedia, setSelectedMedia] =
         useState(null);
 
+    // CURRENT ACTION
     const [updatingId, setUpdatingId] =
         useState(null);
 
+    // WORK PHOTOS
     const [selectedWorkPhotos, setSelectedWorkPhotos] =
         useState([]);
 
     const [uploadingPhotos, setUploadingPhotos] =
         useState(false);
 
+    // VIEW
     const [activeView, setActiveView] =
         useState("MY");
 
+    // CATEGORY
     const [selectedCategory, setSelectedCategory] =
         useState("ALL");
+
 
     // =====================================================
     // FETCH COMPLAINTS
     // =====================================================
 
     useEffect(() => {
+        const CACHE_KEY =
+            "contractorComplaints";
+
+        const cachedComplaints =
+            sessionStorage.getItem(CACHE_KEY);
+
+        // Show cached complaints immediately
+        if (cachedComplaints) {
+            try {
+                const parsedComplaints =
+                    JSON.parse(cachedComplaints);
+
+                if (Array.isArray(parsedComplaints)) {
+                    setProjects(parsedComplaints);
+                    setLoading(false);
+                }
+            } catch (cacheError) {
+                console.error(
+                    "Failed to read cached contractor complaints:",
+                    cacheError
+                );
+
+                sessionStorage.removeItem(
+                    CACHE_KEY
+                );
+            }
+        }
+
+
         const fetchComplaints = async () => {
             const token =
                 localStorage.getItem("token");
@@ -55,13 +91,17 @@ function Contractor() {
             }
 
             try {
-                setLoading(true);
+                if (!cachedComplaints) {
+                    setLoading(true);
+                }
+
                 setError("");
 
                 const response = await fetch(
                     `${API_URL}/api/complaints`,
                     {
                         method: "GET",
+
                         headers: {
                             Authorization:
                                 `Bearer ${token}`,
@@ -69,22 +109,34 @@ function Contractor() {
                     }
                 );
 
+
                 if (
                     response.status === 401 ||
                     response.status === 403
                 ) {
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("user");
+                    localStorage.removeItem(
+                        "token"
+                    );
+
+                    localStorage.removeItem(
+                        "user"
+                    );
+
+                    sessionStorage.removeItem(
+                        CACHE_KEY
+                    );
 
                     navigate("/");
                     return;
                 }
+
 
                 if (!response.ok) {
                     throw new Error(
                         "Failed to fetch complaints"
                     );
                 }
+
 
                 const data =
                     await response.json();
@@ -94,27 +146,48 @@ function Contractor() {
                     data
                 );
 
-                setProjects(
+
+                const complaints =
                     Array.isArray(data)
                         ? data
-                        : []
+                        : [];
+
+
+                setProjects(
+                    complaints
                 );
+
+
+                sessionStorage.setItem(
+                    CACHE_KEY,
+                    JSON.stringify(
+                        complaints
+                    )
+                );
+
             } catch (err) {
                 console.error(
                     "Contractor complaint fetch error:",
                     err
                 );
 
-                setError(
-                    "Unable to load complaints."
-                );
+                // Keep cached data if available
+                if (!cachedComplaints) {
+                    setError(
+                        "Unable to load complaints."
+                    );
+                }
+
             } finally {
                 setLoading(false);
             }
         };
 
+
         fetchComplaints();
+
     }, [API_URL, navigate]);
+
 
     // =====================================================
     // LOGOUT
@@ -122,11 +195,18 @@ function Contractor() {
 
     const handleLogout = () => {
         localStorage.removeItem("token");
+
         localStorage.removeItem("user");
+
         localStorage.removeItem("username");
+
+        sessionStorage.removeItem(
+            "contractorComplaints"
+        );
 
         navigate("/");
     };
+
 
     // =====================================================
     // CURRENT CONTRACTOR ID
@@ -137,6 +217,7 @@ function Contractor() {
         user?.userId ??
         user?.contractorId ??
         null;
+
 
     // =====================================================
     // CHECK ASSIGNED TO ME
@@ -149,9 +230,11 @@ function Contractor() {
             project?.assignedTo ||
             null;
 
+
         if (!contractor) {
             return false;
         }
+
 
         if (
             typeof contractor === "object"
@@ -160,6 +243,7 @@ function Contractor() {
                 contractor.id ??
                 contractor.userId ??
                 contractor.contractorId;
+
 
             if (
                 contractorId != null &&
@@ -171,15 +255,18 @@ function Contractor() {
                 );
             }
 
+
             const contractorUsername =
                 contractor.userName ||
                 contractor.username ||
                 contractor.email;
 
+
             const currentUsername =
                 user?.userName ||
                 user?.username ||
                 user?.email;
+
 
             if (
                 contractorUsername &&
@@ -192,6 +279,7 @@ function Contractor() {
             }
         }
 
+
         if (
             typeof contractor === "number" ||
             typeof contractor === "string"
@@ -203,8 +291,10 @@ function Contractor() {
             );
         }
 
+
         return false;
     };
+
 
     // =====================================================
     // CONTRACTOR NAME
@@ -217,9 +307,11 @@ function Contractor() {
             project?.assignedTo ||
             null;
 
+
         if (!contractor) {
             return "Not assigned";
         }
+
 
         if (
             typeof contractor === "object"
@@ -233,8 +325,10 @@ function Contractor() {
             );
         }
 
+
         return "Assigned contractor";
     };
+
 
     // =====================================================
     // CHECK VIDEO MEDIA
@@ -245,13 +339,16 @@ function Contractor() {
             project?.mediaType || ""
         ).toUpperCase();
 
+
         if (mediaType === "VIDEO") {
             return true;
         }
 
+
         const url = String(
             project?.mediaUrl || ""
         ).toLowerCase();
+
 
         return (
             url.includes(".mp4") ||
@@ -262,6 +359,7 @@ function Contractor() {
         );
     };
 
+
     // =====================================================
     // OPEN MEDIA
     // =====================================================
@@ -271,19 +369,24 @@ function Contractor() {
             return;
         }
 
+
         const video =
             isVideoMedia(project);
 
+
         setSelectedMedia({
             url: project.mediaUrl,
+
             type: video
                 ? "VIDEO"
                 : "PHOTO",
+
             category:
                 project.category ||
                 "Complaint Evidence",
         });
     };
+
 
     // =====================================================
     // CLOSE MEDIA
@@ -293,46 +396,63 @@ function Contractor() {
         setSelectedMedia(null);
     };
 
+
     // =====================================================
     // START WORK
     // =====================================================
 
-    const startWork = async (projectId) => {
+    const startWork = async (
+        projectId
+    ) => {
         const token =
             localStorage.getItem("token");
+
 
         if (!token) {
             navigate("/");
             return;
         }
 
+
         try {
             setUpdatingId(projectId);
 
-            const response = await fetch(
-                `${API_URL}/api/complaints/${projectId}/start`,
-                {
-                    method: "PUT",
-                    headers: {
-                        Authorization:
-                            `Bearer ${token}`,
-                    },
-                }
-            );
+
+            const response =
+                await fetch(
+                    `${API_URL}/api/complaints/${projectId}/start`,
+                    {
+                        method: "PUT",
+
+                        headers: {
+                            Authorization:
+                                `Bearer ${token}`,
+                        },
+                    }
+                );
+
 
             const responseText =
                 await response.text();
+
 
             if (
                 response.status === 401 ||
                 response.status === 403
             ) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
+                localStorage.removeItem(
+                    "token"
+                );
+
+                localStorage.removeItem(
+                    "user"
+                );
 
                 navigate("/");
+
                 return;
             }
+
 
             if (!response.ok) {
                 throw new Error(
@@ -341,14 +461,19 @@ function Contractor() {
                 );
             }
 
+
             let updatedComplaint = null;
+
 
             try {
                 updatedComplaint =
-                    JSON.parse(responseText);
+                    JSON.parse(
+                        responseText
+                    );
             } catch {
                 updatedComplaint = null;
             }
+
 
             setProjects(
                 (previousProjects) =>
@@ -373,6 +498,7 @@ function Contractor() {
                                 : project
                     )
             );
+
         } catch (error) {
             console.error(
                 "Start work error:",
@@ -383,29 +509,39 @@ function Contractor() {
                 error.message ||
                     "Unable to start work."
             );
+
         } finally {
             setUpdatingId(null);
         }
     };
 
+
     // =====================================================
     // SELECT WORK PHOTOS
     // =====================================================
 
-    const handleWorkPhotoSelect = (event) => {
+    const handleWorkPhotoSelect = (
+        event
+    ) => {
         const files =
             Array.from(
                 event.target.files || []
             );
 
+
         if (files.length === 0) {
             return;
         }
 
+
         const imageFiles =
-            files.filter((file) =>
-                file.type.startsWith("image/")
+            files.filter(
+                (file) =>
+                    file.type.startsWith(
+                        "image/"
+                    )
             );
+
 
         if (
             imageFiles.length !==
@@ -416,18 +552,23 @@ function Contractor() {
             );
         }
 
+
         setSelectedWorkPhotos(
             imageFiles
         );
 
+
         event.target.value = "";
     };
+
 
     // =====================================================
     // REMOVE SELECTED PHOTO
     // =====================================================
 
-    const removeSelectedPhoto = (index) => {
+    const removeSelectedPhoto = (
+        index
+    ) => {
         setSelectedWorkPhotos(
             (previousPhotos) =>
                 previousPhotos.filter(
@@ -437,6 +578,7 @@ function Contractor() {
         );
     };
 
+
     // =====================================================
     // UPLOAD WORK PHOTOS
     // =====================================================
@@ -445,7 +587,8 @@ function Contractor() {
         projectId
     ) => {
         if (
-            selectedWorkPhotos.length === 0
+            selectedWorkPhotos.length ===
+            0
         ) {
             alert(
                 "Please select work photos first."
@@ -454,31 +597,38 @@ function Contractor() {
             return;
         }
 
+
         const token =
             localStorage.getItem("token");
+
 
         if (!token) {
             navigate("/");
             return;
         }
 
+
         try {
             setUploadingPhotos(true);
 
+
             const uploadedUrls = [];
+
 
             // ---------------------------------------------
             // UPLOAD TO SUPABASE
             // ---------------------------------------------
 
             for (
-                const photo of selectedWorkPhotos
+                const photo of
+                    selectedWorkPhotos
             ) {
                 const extension =
                     photo.name
                         ?.split(".")
                         .pop() ||
                     "jpg";
+
 
                 const fileName =
                     `work-${projectId}-${Date.now()}-${Math.random()
@@ -488,8 +638,10 @@ function Contractor() {
                             8
                         )}.${extension}`;
 
+
                 const filePath =
                     `work-photos/${projectId}/${fileName}`;
+
 
                 const {
                     error: uploadError,
@@ -508,6 +660,7 @@ function Contractor() {
                             }
                         );
 
+
                 if (uploadError) {
                     console.error(
                         "Supabase upload error:",
@@ -519,6 +672,7 @@ function Contractor() {
                     );
                 }
 
+
                 const {
                     data: urlData,
                 } =
@@ -528,6 +682,7 @@ function Contractor() {
                             filePath
                         );
 
+
                 if (
                     !urlData?.publicUrl
                 ) {
@@ -536,10 +691,12 @@ function Contractor() {
                     );
                 }
 
+
                 uploadedUrls.push(
                     urlData.publicUrl
                 );
             }
+
 
             // ---------------------------------------------
             // SAVE URLS TO BACKEND
@@ -566,8 +723,10 @@ function Contractor() {
                     }
                 );
 
+
             const responseText =
                 await response.text();
+
 
             if (
                 response.status === 401 ||
@@ -582,8 +741,10 @@ function Contractor() {
                 );
 
                 navigate("/");
+
                 return;
             }
+
 
             if (!response.ok) {
                 throw new Error(
@@ -592,11 +753,14 @@ function Contractor() {
                 );
             }
 
+
             alert(
                 "Work photos uploaded successfully."
             );
 
+
             setSelectedWorkPhotos([]);
+
         } catch (error) {
             console.error(
                 "Work photo upload error:",
@@ -607,10 +771,12 @@ function Contractor() {
                 error.message ||
                     "Unable to upload work photos."
             );
+
         } finally {
             setUploadingPhotos(false);
         }
     };
+
 
     // =====================================================
     // COMPLETE WORK
@@ -622,39 +788,52 @@ function Contractor() {
         const token =
             localStorage.getItem("token");
 
+
         if (!token) {
             navigate("/");
             return;
         }
 
+
         try {
             setUpdatingId(projectId);
 
-            const response = await fetch(
-                `${API_URL}/api/complaints/${projectId}/complete`,
-                {
-                    method: "PUT",
 
-                    headers: {
-                        Authorization:
-                            `Bearer ${token}`,
-                    },
-                }
-            );
+            const response =
+                await fetch(
+                    `${API_URL}/api/complaints/${projectId}/complete`,
+                    {
+                        method: "PUT",
+
+                        headers: {
+                            Authorization:
+                                `Bearer ${token}`,
+                        },
+                    }
+                );
+
 
             const responseText =
                 await response.text();
+
 
             if (
                 response.status === 401 ||
                 response.status === 403
             ) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
+                localStorage.removeItem(
+                    "token"
+                );
+
+                localStorage.removeItem(
+                    "user"
+                );
 
                 navigate("/");
+
                 return;
             }
+
 
             if (!response.ok) {
                 throw new Error(
@@ -663,14 +842,19 @@ function Contractor() {
                 );
             }
 
+
             let updatedComplaint = null;
+
 
             try {
                 updatedComplaint =
-                    JSON.parse(responseText);
+                    JSON.parse(
+                        responseText
+                    );
             } catch {
                 updatedComplaint = null;
             }
+
 
             setProjects(
                 (previousProjects) =>
@@ -688,6 +872,7 @@ function Contractor() {
                                 : project
                     )
             );
+
         } catch (error) {
             console.error(
                 "Complete work error:",
@@ -698,10 +883,12 @@ function Contractor() {
                 error.message ||
                     "Unable to complete work."
             );
+
         } finally {
             setUpdatingId(null);
         }
     };
+
 
     // =====================================================
     // CATEGORY OPTIONS
@@ -712,52 +899,67 @@ function Contractor() {
             value: "Road Damage",
             label: "Road Damage",
         },
+
         {
             value: "Garbage",
             label: "Garbage / Waste",
         },
+
         {
             value: "Street Light",
             label: "Street Light",
         },
+
         {
             value: "Water Leakage",
             label: "Water Leakage",
         },
+
         {
             value: "Drainage",
             label: "Drainage Problem",
         },
+
         {
             value: "Illegal Dumping",
             label: "Illegal Dumping",
         },
+
         {
             value:
                 "Public Property Damage",
+
             label:
                 "Public Property Damage",
         },
+
         {
             value: "Other",
             label: "Other",
         },
     ];
 
+
     // =====================================================
     // MY PROJECTS
     // =====================================================
 
-    const myProjects = useMemo(() => {
-        return projects.filter(
-            (project) =>
-                isAssignedToMe(project)
-        );
-    }, [
-        projects,
-        currentContractorId,
-        user,
-    ]);
+    const myProjects = useMemo(
+        () => {
+            return projects.filter(
+                (project) =>
+                    isAssignedToMe(
+                        project
+                    )
+            );
+        },
+        [
+            projects,
+            currentContractorId,
+            user,
+        ]
+    );
+
 
     // =====================================================
     // CURRENT VIEW
@@ -767,6 +969,7 @@ function Contractor() {
         activeView === "MY"
             ? myProjects
             : projects;
+
 
     // =====================================================
     // CATEGORY FILTER
@@ -781,12 +984,14 @@ function Contractor() {
                       selectedCategory
               );
 
+
     // =====================================================
     // STATISTICS
     // =====================================================
 
     const totalProjects =
         myProjects.length;
+
 
     const pendingProjects =
         myProjects.filter(
@@ -797,6 +1002,7 @@ function Contractor() {
                     "ASSIGNED"
         ).length;
 
+
     const inProgressProjects =
         myProjects.filter(
             (project) =>
@@ -805,6 +1011,7 @@ function Contractor() {
                 project.status ===
                     "IN PROGRESS"
         ).length;
+
 
     const completedProjects =
         myProjects.filter(
@@ -815,11 +1022,14 @@ function Contractor() {
                     "COMPLETED"
         ).length;
 
+
     // =====================================================
     // FORMAT COORDINATE
     // =====================================================
 
-    const formatCoordinate = (value) => {
+    const formatCoordinate = (
+        value
+    ) => {
         if (
             typeof value === "number" &&
             Number.isFinite(value)
@@ -830,25 +1040,34 @@ function Contractor() {
         return value || "N/A";
     };
 
+
     // =====================================================
     // STATUS CLASS
     // =====================================================
 
-    const getStatusClass = (status) => {
+    const getStatusClass = (
+        status
+    ) => {
         if (!status) {
             return "unknown";
         }
 
         return String(status)
             .toLowerCase()
-            .replace(/\s+/g, "-");
+            .replace(
+                /\s+/g,
+                "-"
+            );
     };
+
 
     // =====================================================
     // STATUS TEXT
     // =====================================================
 
-    const getStatusText = (status) => {
+    const getStatusText = (
+        status
+    ) => {
         if (!status) {
             return "UNKNOWN";
         }
@@ -858,6 +1077,7 @@ function Contractor() {
             " "
         );
     };
+
 
     // =====================================================
     // IMAGE ERROR
@@ -869,9 +1089,11 @@ function Contractor() {
         event.currentTarget.style.display =
             "none";
 
+
         const container =
             event.currentTarget
                 .parentElement;
+
 
         if (container) {
             container.classList.add(
@@ -879,6 +1101,7 @@ function Contractor() {
             );
         }
     };
+
 
     // =====================================================
     // VIEW CHANGE
@@ -888,27 +1111,35 @@ function Contractor() {
         view
     ) => {
         setActiveView(view);
+
         setSelectedCategory("ALL");
+
         setSelectedWorkPhotos([]);
     };
+
 
     // =====================================================
     // ESCAPE TO CLOSE MEDIA
     // =====================================================
 
     useEffect(() => {
-        const handleEscape = (event) => {
+        const handleEscape = (
+            event
+        ) => {
             if (
-                event.key === "Escape"
+                event.key ===
+                "Escape"
             ) {
                 closeMedia();
             }
         };
 
+
         window.addEventListener(
             "keydown",
             handleEscape
         );
+
 
         return () => {
             window.removeEventListener(
@@ -917,6 +1148,214 @@ function Contractor() {
             );
         };
     }, []);
+
+
+    // =====================================================
+    // SLA / CRITICALITY
+    // =====================================================
+
+    const getPriorityText = (
+        project
+    ) => {
+        const priority = String(
+            project?.priority ||
+                "MEDIUM"
+        ).toUpperCase();
+
+
+        if (
+            priority === "HIGH"
+        ) {
+            return "CRITICAL";
+        }
+
+
+        if (
+            priority === "LOW"
+        ) {
+            return "LOW";
+        }
+
+
+        return "MEDIUM";
+    };
+
+
+    const getPriorityClass = (
+        project
+    ) => {
+        return getPriorityText(
+            project
+        ).toLowerCase();
+    };
+
+
+    const getDueDate = (
+        project
+    ) => {
+        if (!project?.dueAt) {
+            return null;
+        }
+
+
+        const date =
+            new Date(
+                project.dueAt
+            );
+
+
+        return Number.isNaN(
+            date.getTime()
+        )
+            ? null
+            : date;
+    };
+
+
+    const getSlaInfo = (
+        project
+    ) => {
+        const dueDate =
+            getDueDate(
+                project
+            );
+
+
+        if (!dueDate) {
+            return {
+                label:
+                    "SLA not available",
+
+                className:
+                    "sla-unknown",
+
+                overdue: false,
+            };
+        }
+
+
+        const completed =
+            project.status ===
+                "COMPLETED" ||
+            project.status ===
+                "RESOLVED" ||
+            project.status ===
+                "SOLVED";
+
+
+        if (completed) {
+            return {
+                label:
+                    "SLA completed",
+
+                className:
+                    "sla-completed",
+
+                overdue: false,
+            };
+        }
+
+
+        const remainingMs =
+            dueDate.getTime() -
+            Date.now();
+
+
+        if (
+            remainingMs <= 0
+        ) {
+            return {
+                label:
+                    "SLA BREACHED",
+
+                className:
+                    "sla-overdue",
+
+                overdue: true,
+            };
+        }
+
+
+        const totalMinutes =
+            Math.floor(
+                remainingMs /
+                    60000
+            );
+
+
+        const days =
+            Math.floor(
+                totalMinutes /
+                    1440
+            );
+
+
+        const hours =
+            Math.floor(
+                (totalMinutes %
+                    1440) /
+                    60
+            );
+
+
+        const minutes =
+            totalMinutes %
+            60;
+
+
+        let label = "";
+
+
+        if (days > 0) {
+            label =
+                `${days}d ${hours}h remaining`;
+        } else if (hours > 0) {
+            label =
+                `${hours}h ${minutes}m remaining`;
+        } else {
+            label =
+                `${minutes}m remaining`;
+        }
+
+
+        const dueSoon =
+            remainingMs <=
+            24 *
+                60 *
+                60 *
+                1000;
+
+
+        return {
+            label,
+
+            className:
+                dueSoon
+                    ? "sla-warning"
+                    : "sla-active",
+
+            overdue: false,
+        };
+    };
+
+
+    const formatDueDate = (
+        project
+    ) => {
+        const dueDate =
+            getDueDate(
+                project
+            );
+
+
+        if (!dueDate) {
+            return "Not set";
+        }
+
+
+        return dueDate.toLocaleString();
+    };
+
 
     // =====================================================
     // RENDER
@@ -938,6 +1377,7 @@ function Contractor() {
                     </div>
 
                     <div>
+
                         <div className="contractor-brand-name">
                             CivicProof
                         </div>
@@ -945,9 +1385,11 @@ function Contractor() {
                         <div className="contractor-brand-subtitle">
                             MUNICIPAL OPERATIONS
                         </div>
+
                     </div>
 
                 </div>
+
 
                 <div className="contractor-header-right">
 
@@ -964,13 +1406,17 @@ function Contractor() {
 
                     </div>
 
+
                     <span className="contractor-role-badge">
                         CONTRACTOR
                     </span>
 
+
                     <button
                         className="contractor-logout-btn"
-                        onClick={handleLogout}
+                        onClick={
+                            handleLogout
+                        }
                     >
                         Logout
                     </button>
@@ -1121,6 +1567,8 @@ function Contractor() {
 
                         <div className="contractor-section-controls">
 
+                            {/* TABS */}
+
                             <div className="contractor-view-tabs">
 
                                 <button
@@ -1138,6 +1586,7 @@ function Contractor() {
                                 >
                                     My Projects
                                 </button>
+
 
                                 <button
                                     className={`contractor-view-tab ${
@@ -1158,14 +1607,19 @@ function Contractor() {
                             </div>
 
 
+                            {/* CATEGORY */}
+
                             <select
                                 className="contractor-category-filter"
                                 value={
                                     selectedCategory
                                 }
-                                onChange={(event) =>
+                                onChange={(
+                                    event
+                                ) =>
                                     setSelectedCategory(
-                                        event.target
+                                        event
+                                            .target
                                             .value
                                     )
                                 }
@@ -1175,8 +1629,11 @@ function Contractor() {
                                     All Categories
                                 </option>
 
+
                                 {categoryOptions.map(
-                                    (category) => (
+                                    (
+                                        category
+                                    ) => (
                                         <option
                                             key={
                                                 category.value
@@ -1213,7 +1670,12 @@ function Contractor() {
                     </div>
 
 
-                    {/* TABLE HEADER */}
+                    {/* =================================================
+                        TABLE HEADER
+
+                        IMPORTANT:
+                        5 columns matching each project card
+                    ================================================= */}
 
                     {!loading &&
                         !error &&
@@ -1231,6 +1693,10 @@ function Contractor() {
                                 </div>
 
                                 <div>
+                                    SLA / CRITICALITY
+                                </div>
+
+                                <div>
                                     ASSIGNED CONTRACTOR
                                 </div>
 
@@ -1239,10 +1705,13 @@ function Contractor() {
                                 </div>
 
                             </div>
+
                         )}
 
 
-                    {/* LOADING */}
+                    {/* =================================================
+                        LOADING
+                    ================================================= */}
 
                     {loading && (
 
@@ -1261,7 +1730,9 @@ function Contractor() {
                     )}
 
 
-                    {/* ERROR */}
+                    {/* =================================================
+                        ERROR
+                    ================================================= */}
 
                     {!loading &&
                         error && (
@@ -1281,10 +1752,13 @@ function Contractor() {
                                 </p>
 
                             </div>
+
                         )}
 
 
-                    {/* EMPTY */}
+                    {/* =================================================
+                        EMPTY
+                    ================================================= */}
 
                     {!loading &&
                         !error &&
@@ -1298,6 +1772,7 @@ function Contractor() {
                                 </div>
 
                                 <h3>
+
                                     {activeView ===
                                     "MY"
                                         ? selectedCategory ===
@@ -1308,20 +1783,26 @@ function Contractor() {
                                           "ALL"
                                         ? "No complaints found"
                                         : `No ${selectedCategory} complaints found`}
+
                                 </h3>
 
                                 <p>
+
                                     {activeView ===
                                     "MY"
                                         ? "Projects assigned to you will appear here."
                                         : "There are no complaints matching this filter."}
+
                                 </p>
 
                             </div>
+
                         )}
 
 
-                    {/* COMPLAINT LIST */}
+                    {/* =================================================
+                        COMPLAINT LIST
+                    ================================================= */}
 
                     {!loading &&
                         !error &&
@@ -1331,12 +1812,15 @@ function Contractor() {
                             <div className="contractor-project-list">
 
                                 {filteredProjects.map(
-                                    (project) => {
+                                    (
+                                        project
+                                    ) => {
 
                                         const assignedToMe =
                                             isAssignedToMe(
                                                 project
                                             );
+
 
                                         const hasContractor =
                                             !!(
@@ -1345,10 +1829,18 @@ function Contractor() {
                                                 project?.assignedTo
                                             );
 
+
                                         const video =
                                             isVideoMedia(
                                                 project
                                             );
+
+
+                                        const slaInfo =
+                                            getSlaInfo(
+                                                project
+                                            );
+
 
                                         return (
 
@@ -1359,9 +1851,9 @@ function Contractor() {
                                                 }
                                             >
 
-                                                {/* =================================
+                                                {/* =================================================
                                                     COMPLAINT & LOCATION
-                                                ================================= */}
+                                                ================================================= */}
 
                                                 <div className="contractor-complaint-main">
 
@@ -1381,17 +1873,22 @@ function Contractor() {
                                                         onKeyDown={(
                                                             event
                                                         ) => {
+
                                                             if (
                                                                 event.key ===
                                                                     "Enter" ||
                                                                 event.key ===
                                                                     " "
                                                             ) {
+
                                                                 event.preventDefault();
+
                                                                 openMedia(
                                                                     project
                                                                 );
+
                                                             }
+
                                                         }}
                                                     >
 
@@ -1400,6 +1897,7 @@ function Contractor() {
                                                             video ? (
 
                                                                 <>
+
                                                                     <video
                                                                         src={
                                                                             project.mediaUrl
@@ -1414,14 +1912,17 @@ function Contractor() {
                                                                     />
 
                                                                     <div className="contractor-video-overlay">
+
                                                                         <div className="contractor-video-play">
                                                                             ▶
                                                                         </div>
+
                                                                     </div>
 
                                                                     <div className="contractor-video-label">
                                                                         VIDEO
                                                                     </div>
+
                                                                 </>
 
                                                             ) : (
@@ -1466,6 +1967,7 @@ function Contractor() {
                                                                 )}
                                                             </span>
 
+
                                                             <span className="contractor-category-badge">
                                                                 {
                                                                     project.category ||
@@ -1489,9 +1991,13 @@ function Contractor() {
                                                             📍{" "}
 
                                                             {project.address ? (
+
                                                                 project.address
+
                                                             ) : (
+
                                                                 <>
+
                                                                     {formatCoordinate(
                                                                         project.latitude
                                                                     )}
@@ -1501,7 +2007,9 @@ function Contractor() {
                                                                     {formatCoordinate(
                                                                         project.longitude
                                                                     )}
+
                                                                 </>
+
                                                             )}
 
                                                         </p>
@@ -1518,17 +2026,43 @@ function Contractor() {
                                                                 : "Unknown"}
 
                                                         </div>
+
+
+                                                        {/* ESCALATION */}
+
+                                                        {project.escalated && (
+
+                                                            <div className="contractor-escalation-alert">
+
+                                                                ⚠ This complaint has exceeded its SLA and was escalated to a higher officer.
+
+                                                            </div>
+
+                                                        )}
+
+
+                                                        {/* LIKES */}
+
                                                         <ComplaintLike
-                                                            complaintId={project.id}
-                                                            initialLikeCount={project.likeCount}
-                                                            initialLiked={project.liked}
+                                                            complaintId={
+                                                                project.id
+                                                            }
+                                                            initialLikeCount={
+                                                                project.likeCount
+                                                            }
+                                                            initialLiked={
+                                                                project.liked
+                                                            }
                                                         />
+
                                                     </div>
 
                                                 </div>
 
 
-                                                {/* STATUS */}
+                                                {/* =================================================
+                                                    STATUS
+                                                ================================================= */}
 
                                                 <div className="contractor-status-column">
 
@@ -1537,37 +2071,91 @@ function Contractor() {
                                                             project.status
                                                         )}`}
                                                     >
+
                                                         {
                                                             getStatusText(
                                                                 project.status
                                                             )
                                                         }
+
                                                     </span>
 
                                                 </div>
 
 
-                                                {/* ASSIGNED CONTRACTOR */}
+                                                {/* =================================================
+                                                    SLA / CRITICALITY
+                                                ================================================= */}
+
+                                                <div className="contractor-sla-column">
+
+                                                    <span
+                                                        className={`contractor-priority-badge ${getPriorityClass(
+                                                            project
+                                                        )}`}
+                                                    >
+                                                        {
+                                                            getPriorityText(
+                                                                project
+                                                            )
+                                                        }
+                                                    </span>
+
+
+                                                    <span
+                                                        className={`contractor-sla-badge ${slaInfo.className}`}
+                                                    >
+
+                                                        {project.escalated
+                                                            ? "⚠ ESCALATED"
+                                                            : slaInfo.label}
+
+                                                    </span>
+
+
+                                                    <small className="contractor-due-date">
+
+                                                        Due:{" "}
+
+                                                        {
+                                                            formatDueDate(
+                                                                project
+                                                            )
+                                                        }
+
+                                                    </small>
+
+                                                </div>
+
+
+                                                {/* =================================================
+                                                    ASSIGNED CONTRACTOR
+                                                ================================================= */}
 
                                                 <div className="contractor-assigned-column">
 
                                                     {assignedToMe ? (
 
                                                         <>
+
                                                             <strong>
-                                                                {user?.name ||
+                                                                {
+                                                                    user?.name ||
                                                                     user?.userName ||
-                                                                    "You"}
+                                                                    "You"
+                                                                }
                                                             </strong>
 
                                                             <span>
                                                                 Assigned to you
                                                             </span>
+
                                                         </>
 
                                                     ) : hasContractor ? (
 
                                                         <>
+
                                                             <strong>
                                                                 {
                                                                     getContractorName(
@@ -1579,11 +2167,13 @@ function Contractor() {
                                                             <span>
                                                                 Assigned contractor
                                                             </span>
+
                                                         </>
 
                                                     ) : (
 
                                                         <>
+
                                                             <strong className="not-assigned">
                                                                 Not assigned
                                                             </strong>
@@ -1591,6 +2181,7 @@ function Contractor() {
                                                             <span>
                                                                 Awaiting assignment
                                                             </span>
+
                                                         </>
 
                                                     )}
@@ -1598,7 +2189,9 @@ function Contractor() {
                                                 </div>
 
 
-                                                {/* ACTIONS */}
+                                                {/* =================================================
+                                                    ACTIONS
+                                                ================================================= */}
 
                                                 <div className="contractor-project-actions">
 
@@ -1616,18 +2209,22 @@ function Contractor() {
                                                     </button>
 
 
-                                                    {/* MY PROJECT */}
+                                                    {/* =================================================
+                                                        MY PROJECT
+                                                    ================================================= */}
 
                                                     {assignedToMe ? (
 
                                                         <>
 
-                                                            {/* ASSIGNED */}
+                                                            {/* ASSIGNED / PENDING */}
 
-                                                            {(project.status ===
-                                                                "ASSIGNED" ||
+                                                            {(
                                                                 project.status ===
-                                                                    "PENDING") && (
+                                                                    "ASSIGNED" ||
+                                                                project.status ===
+                                                                    "PENDING"
+                                                            ) && (
 
                                                                 <button
                                                                     className="action-start"
@@ -1641,21 +2238,27 @@ function Contractor() {
                                                                         )
                                                                     }
                                                                 >
+
                                                                     {updatingId ===
                                                                     project.id
                                                                         ? "Starting..."
                                                                         : "Start Work"}
+
                                                                 </button>
 
                                                             )}
 
 
-                                                            {/* IN PROGRESS */}
+                                                            {/* =================================================
+                                                                IN PROGRESS
+                                                            ================================================= */}
 
-                                                            {(project.status ===
-                                                                "IN_PROGRESS" ||
+                                                            {(
                                                                 project.status ===
-                                                                    "IN PROGRESS") && (
+                                                                    "IN_PROGRESS" ||
+                                                                project.status ===
+                                                                    "IN PROGRESS"
+                                                            ) && (
 
                                                                 <div className="work-upload-box">
 
@@ -1663,6 +2266,8 @@ function Contractor() {
                                                                         Work In Progress
                                                                     </div>
 
+
+                                                                    {/* ADD PHOTOS */}
 
                                                                     <label className="work-photo-select">
 
@@ -1680,6 +2285,8 @@ function Contractor() {
 
                                                                     </label>
 
+
+                                                                    {/* SELECTED PHOTOS */}
 
                                                                     {selectedWorkPhotos.length >
                                                                         0 && (
@@ -1704,6 +2311,7 @@ function Contractor() {
                                                                                             alt="Selected work"
                                                                                         />
 
+
                                                                                         <button
                                                                                             type="button"
                                                                                             onClick={() =>
@@ -1725,6 +2333,8 @@ function Contractor() {
                                                                     )}
 
 
+                                                                    {/* PHOTO COUNT */}
+
                                                                     {selectedWorkPhotos.length >
                                                                         0 && (
 
@@ -1733,17 +2343,22 @@ function Contractor() {
                                                                             {
                                                                                 selectedWorkPhotos.length
                                                                             }{" "}
+
                                                                             photo
+
                                                                             {selectedWorkPhotos.length >
                                                                             1
                                                                                 ? "s"
                                                                                 : ""}{" "}
+
                                                                             selected
 
                                                                         </div>
 
                                                                     )}
 
+
+                                                                    {/* UPLOAD */}
 
                                                                     <button
                                                                         className="action-upload"
@@ -1758,11 +2373,15 @@ function Contractor() {
                                                                             )
                                                                         }
                                                                     >
+
                                                                         {uploadingPhotos
                                                                             ? "Uploading..."
                                                                             : "Upload Work Photos"}
+
                                                                     </button>
 
+
+                                                                    {/* COMPLETE */}
 
                                                                     <button
                                                                         className="action-complete"
@@ -1776,10 +2395,12 @@ function Contractor() {
                                                                             )
                                                                         }
                                                                     >
+
                                                                         {updatingId ===
                                                                         project.id
                                                                             ? "Completing..."
                                                                             : "Mark Completed"}
+
                                                                     </button>
 
                                                                 </div>
@@ -1787,12 +2408,16 @@ function Contractor() {
                                                             )}
 
 
-                                                            {/* COMPLETED */}
+                                                            {/* =================================================
+                                                                COMPLETED
+                                                            ================================================= */}
 
-                                                            {(project.status ===
-                                                                "COMPLETED" ||
+                                                            {(
                                                                 project.status ===
-                                                                    "RESOLVED") && (
+                                                                    "COMPLETED" ||
+                                                                project.status ===
+                                                                    "RESOLVED"
+                                                            ) && (
 
                                                                 <span className="completed-label">
                                                                     ✓ Completed
@@ -1832,6 +2457,7 @@ function Contractor() {
                                             </article>
 
                                         );
+
                                     }
                                 )}
 
@@ -1852,19 +2478,25 @@ function Contractor() {
 
                 <div
                     className="contractor-media-modal"
-                    onClick={closeMedia}
+                    onClick={
+                        closeMedia
+                    }
                 >
 
                     <div
                         className="contractor-media-modal-content"
-                        onClick={(event) =>
+                        onClick={(
+                            event
+                        ) =>
                             event.stopPropagation()
                         }
                     >
 
                         <button
                             className="contractor-media-modal-close"
-                            onClick={closeMedia}
+                            onClick={
+                                closeMedia
+                            }
                             aria-label="Close"
                         >
                             ×
@@ -1874,11 +2506,14 @@ function Contractor() {
                         <div className="contractor-media-modal-header">
 
                             <span>
+
                                 {selectedMedia.type ===
                                 "VIDEO"
                                     ? "🎥 Video Evidence"
                                     : "🖼️ Photo Evidence"}
+
                             </span>
+
 
                             <small>
                                 {

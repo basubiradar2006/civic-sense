@@ -2,6 +2,8 @@ package com.example.civic_sense.entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "complaints")
 public class Complaint {
@@ -10,12 +12,19 @@ public class Complaint {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // =====================================================
+    // COMPLAINT DETAILS
+    // =====================================================
+
     private String category;
 
     @Column(length = 1000)
     private String description;
 
-    // GPS location
+    // =====================================================
+    // GPS LOCATION
+    // =====================================================
+
     private Double latitude;
 
     private Double longitude;
@@ -27,19 +36,46 @@ public class Complaint {
     @Column(length = 500)
     private String address;
 
+    // =====================================================
+    // MEDIA
+    // =====================================================
+
     // Image / video URL
     private String mediaUrl;
 
     // IMAGE / VIDEO
     private String mediaType;
 
-    // PENDING / ACCEPTED / IN_PROGRESS / SOLVED
+    // =====================================================
+    // COMPLAINT STATUS
+    // =====================================================
+
+    // PENDING / ACCEPTED / IN_PROGRESS / SOLVED / ESCALATED
     private String status;
 
-    // LOW / MEDIUM / HIGH
+    // LOW / MEDIUM / HIGH / CRITICAL
     private String priority;
 
-    // Time when evidence was captured
+    // =====================================================
+    // SLA / ESCALATION
+    // =====================================================
+
+    // When complaint was submitted
+    private LocalDateTime createdAt;
+
+    // Deadline for resolving the complaint
+    private LocalDateTime dueAt;
+
+    // Whether SLA has been breached
+    private boolean escalated = false;
+
+    // When the complaint was escalated
+    private LocalDateTime escalatedAt;
+
+    // =====================================================
+    // EVIDENCE CAPTURE TIME
+    // =====================================================
+
     private String capturedAt;
 
     // =====================================================
@@ -58,12 +94,16 @@ public class Complaint {
     @JoinColumn(name = "contractor_id")
     private User contractor;
 
+    // =====================================================
+    // LIKE INFORMATION
+    // =====================================================
 
     @Transient
     private long likeCount;
 
     @Transient
     private boolean liked;
+
     // =====================================================
     // CONSTRUCTOR
     // =====================================================
@@ -79,6 +119,10 @@ public class Complaint {
         return id;
     }
 
+    // -----------------------------------------------------
+    // CATEGORY
+    // -----------------------------------------------------
+
     public String getCategory() {
         return category;
     }
@@ -86,6 +130,10 @@ public class Complaint {
     public void setCategory(String category) {
         this.category = category;
     }
+
+    // -----------------------------------------------------
+    // DESCRIPTION
+    // -----------------------------------------------------
 
     public String getDescription() {
         return description;
@@ -95,6 +143,10 @@ public class Complaint {
         this.description = description;
     }
 
+    // -----------------------------------------------------
+    // LATITUDE
+    // -----------------------------------------------------
+
     public Double getLatitude() {
         return latitude;
     }
@@ -102,6 +154,10 @@ public class Complaint {
     public void setLatitude(Double latitude) {
         this.latitude = latitude;
     }
+
+    // -----------------------------------------------------
+    // LONGITUDE
+    // -----------------------------------------------------
 
     public Double getLongitude() {
         return longitude;
@@ -111,6 +167,10 @@ public class Complaint {
         this.longitude = longitude;
     }
 
+    // -----------------------------------------------------
+    // ACCURACY
+    // -----------------------------------------------------
+
     public Double getAccuracy() {
         return accuracy;
     }
@@ -118,6 +178,10 @@ public class Complaint {
     public void setAccuracy(Double accuracy) {
         this.accuracy = accuracy;
     }
+
+    // -----------------------------------------------------
+    // ADDRESS
+    // -----------------------------------------------------
 
     public String getAddress() {
         return address;
@@ -127,6 +191,10 @@ public class Complaint {
         this.address = address;
     }
 
+    // -----------------------------------------------------
+    // MEDIA URL
+    // -----------------------------------------------------
+
     public String getMediaUrl() {
         return mediaUrl;
     }
@@ -134,6 +202,10 @@ public class Complaint {
     public void setMediaUrl(String mediaUrl) {
         this.mediaUrl = mediaUrl;
     }
+
+    // -----------------------------------------------------
+    // MEDIA TYPE
+    // -----------------------------------------------------
 
     public String getMediaType() {
         return mediaType;
@@ -143,6 +215,10 @@ public class Complaint {
         this.mediaType = mediaType;
     }
 
+    // -----------------------------------------------------
+    // STATUS
+    // -----------------------------------------------------
+
     public String getStatus() {
         return status;
     }
@@ -150,6 +226,10 @@ public class Complaint {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    // -----------------------------------------------------
+    // PRIORITY
+    // -----------------------------------------------------
 
     public String getPriority() {
         return priority;
@@ -159,12 +239,56 @@ public class Complaint {
         this.priority = priority;
     }
 
+    // -----------------------------------------------------
+    // CAPTURED AT
+    // -----------------------------------------------------
+
     public String getCapturedAt() {
         return capturedAt;
     }
 
     public void setCapturedAt(String capturedAt) {
         this.capturedAt = capturedAt;
+    }
+
+    // =====================================================
+    // SLA
+    // =====================================================
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getDueAt() {
+        return dueAt;
+    }
+
+    public void setDueAt(LocalDateTime dueAt) {
+        this.dueAt = dueAt;
+    }
+
+    // =====================================================
+    // ESCALATION
+    // =====================================================
+
+    public boolean isEscalated() {
+        return escalated;
+    }
+
+    public void setEscalated(boolean escalated) {
+        this.escalated = escalated;
+    }
+
+    public LocalDateTime getEscalatedAt() {
+        return escalatedAt;
+    }
+
+    public void setEscalatedAt(LocalDateTime escalatedAt) {
+        this.escalatedAt = escalatedAt;
     }
 
     // =====================================================
@@ -190,6 +314,11 @@ public class Complaint {
     public void setContractor(User contractor) {
         this.contractor = contractor;
     }
+
+    // =====================================================
+    // LIKE COUNT
+    // =====================================================
+
     public long getLikeCount() {
         return likeCount;
     }
@@ -197,6 +326,10 @@ public class Complaint {
     public void setLikeCount(long likeCount) {
         this.likeCount = likeCount;
     }
+
+    // =====================================================
+    // LIKED
+    // =====================================================
 
     public boolean isLiked() {
         return liked;
