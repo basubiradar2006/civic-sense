@@ -1,0 +1,19 @@
+# Git & IDE
+.git
+.github
+.idea
+**/.idea
+**/.vscode
+
+# Host build artifacts (Windows-specific node_modules would break the Linux build)
+**/node_modules
+**/target
+**/dist
+
+# Logs & misc
+**/*.log
+**/.DS_Store
+
+# Docker files themselves
+Dockerfile
+docker-compose.yml

@@ -1,35 +1,57 @@
-# ---------- Build React ----------
-FROM node:22 AS frontend-build
+
+# syntax=docker/dockerfile:1
+
+# ============================================================
+# Stage 1 — Build the React frontend
+# ============================================================
+FROM node:22-slim AS frontend-build
 
 WORKDIR /frontend
 
-COPY civic_sense_frontend/package*.json ./
-RUN npm install
+COPY civic_sense_frontend/package.json civic_sense_frontend/package-lock.json ./
+
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
 
 COPY civic_sense_frontend/ ./
-RUN npm run build
+
+ARG VITE_API_URL=""
+
+RUN if [ -f .env ]; then \
+        sed -i "s|^VITE_API_URL=.*|VITE_API_URL=${VITE_API_URL}|" .env; \
+    fi \
+    && npm run build
 
 
-# ---------- Build Spring Boot ----------
-FROM eclipse-temurin:24-jdk AS backend-build
+# ============================================================
+# Stage 2 — Build the Spring Boot backend
+# ============================================================
+FROM eclipse-temurin:17-jdk AS backend-build
 
 WORKDIR /backend
 
-COPY civic_sense/ ./
+# Updated folder name
+COPY civic_sense_backend/ ./
 
-RUN chmod +x mvnw
-RUN ./mvnw clean package -DskipTests
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
+
+COPY --from=frontend-build /frontend/dist/ src/main/resources/static/
+
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw -B clean package -DskipTests
 
 
-# ---------- Final application ----------
-FROM eclipse-temurin:24-jre
+# ============================================================
+# Stage 3 — Runtime image
+# ============================================================
+FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
 COPY --from=backend-build /backend/target/*.jar app.jar
 
-COPY --from=frontend-build /frontend/dist /app/static
-
 EXPOSE 8085
 
-CMD ["java", "-jar", "app.jar"]
+ENV JAVA_OPTS=""
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

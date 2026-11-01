@@ -1,0 +1,10 @@
+# Local environment overrides (see .env.example)
+.env
+
+# Docker
+db-data/
+
+# OS / IDE
+.DS_Store
+.idea/
+*.log

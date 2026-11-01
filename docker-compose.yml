@@ -1,0 +1,48 @@
+services:
+
+  # ----------------------------------------------------------
+  # PostgreSQL database (local, self-contained)
+  # ----------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-civic_sense}
+      POSTGRES_USER: ${POSTGRES_USER:-civic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-civic_sense}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    # Uncomment to connect with a local DB client (DBeaver, psql, ...):
+    # ports:
+    #   - "5432:5432"
+
+  # ----------------------------------------------------------
+  # Spring Boot backend + built React frontend (single image)
+  # ----------------------------------------------------------
+  app:
+    build:
+      context: .
+      args:
+        # Empty (default) = frontend calls the API on the same origin,
+        # so it works from any host/port. Set only if the API lives elsewhere.
+        VITE_API_URL: ${VITE_API_URL:-}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Override the hardcoded datasource values in application.properties
+      # (OS environment variables take precedence over the file).
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-civic_sense}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-civic}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-civic_sense}
+    ports:
+      - "${APP_PORT:-8085}:8085"
+
+volumes:
+  db-data:
