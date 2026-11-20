@@ -33,14 +33,22 @@ public class AuthService {
     ) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-
             throw new RuntimeException(
                     "Email already registered"
             );
         }
 
+        String phone = normalizePhone(request.getPhone());
+
+        if (phone != null && userRepository.existsByPhone(phone)) {
+            throw new RuntimeException(
+                    "Phone number already registered"
+            );
+        }
+
         User user = new User();
 
+        user.setPhone(phone);
         user.setName(request.getName());
         user.setEmail(request.getEmail());
 
@@ -72,11 +80,19 @@ public class AuthService {
             LoginRequest request
     ) {
 
-        User user = userRepository
-                .findByEmail(request.getEmail())
+        // The login field accepts either an email address
+        // or a phone number.
+        String identifier = request.getEmail() == null
+                ? ""
+                : request.getEmail().trim();
+
+        User user = (identifier.contains("@")
+                ? userRepository.findByEmail(identifier)
+                : userRepository.findByPhone(normalizePhone(identifier))
+                        .or(() -> userRepository.findByEmail(identifier)))
                 .orElseThrow(() ->
                         new RuntimeException(
-                                "User not found"
+                                "No account found for this email / phone"
                         )
                 );
 
@@ -105,7 +121,27 @@ public class AuthService {
         response.put("name", user.getName());
         response.put("email", user.getEmail());
         response.put("role", user.getRole());
+        response.put("phone", user.getPhone());
 
         return response;
+    }
+
+    // Keep digits and a leading "+" so "+880 1711-000000"
+    // and "+8801711000000" are treated as the same number.
+    static String normalizePhone(String phone) {
+
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+
+        String trimmed = phone.trim();
+
+        String digits = trimmed.replaceAll("[^0-9]", "");
+
+        if (digits.isEmpty()) {
+            return null;
+        }
+
+        return trimmed.startsWith("+") ? "+" + digits : digits;
     }
 }

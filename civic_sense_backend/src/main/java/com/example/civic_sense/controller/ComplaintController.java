@@ -2,14 +2,14 @@ package com.example.civic_sense.controller;
 
 import com.example.civic_sense.dto.NearbyComplaintResponse;
 import com.example.civic_sense.entity.Complaint;
-import com.example.civic_sense.entity.Role;
 import com.example.civic_sense.entity.User;
 import com.example.civic_sense.entity.WorkPhoto;
 import com.example.civic_sense.repository.ComplaintRepository;
 import com.example.civic_sense.repository.LikeRepository;
 import com.example.civic_sense.repository.UserRepository;
 import com.example.civic_sense.repository.WorkPhotoRepository;
-import com.example.civic_sense.service.ComplaintSlaService;
+import com.example.civic_sense.service.ComplaintService;
+import com.example.civic_sense.severity.SeverityService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,48 +17,51 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Complaint REST API.
+ *
+ * Every write goes through {@link ComplaintService} which handles
+ * duplicate merging, severity scoring and real-time broadcasting.
+ */
 @RestController
 @RequestMapping("/api/complaints")
-@CrossOrigin(origins = {
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://10.208.91.107:5173",
-        "https://civic-sense-1-zc52.onrender.com"
-})
 public class ComplaintController {
 
     private final ComplaintRepository complaintRepository;
     private final UserRepository userRepository;
     private final LikeRepository likeRepository;
     private final WorkPhotoRepository workPhotoRepository;
-    private final ComplaintSlaService complaintSlaService;
-
-    // =====================================================
-    // CONSTRUCTOR
-    // =====================================================
+    private final ComplaintService complaintService;
+    private final SeverityService severityService;
 
     public ComplaintController(
             ComplaintRepository complaintRepository,
             UserRepository userRepository,
             LikeRepository likeRepository,
             WorkPhotoRepository workPhotoRepository,
-            ComplaintSlaService complaintSlaService) {
+            ComplaintService complaintService,
+            SeverityService severityService) {
 
         this.complaintRepository = complaintRepository;
         this.userRepository = userRepository;
         this.likeRepository = likeRepository;
         this.workPhotoRepository = workPhotoRepository;
-        this.complaintSlaService = complaintSlaService;
+        this.complaintService = complaintService;
+        this.severityService = severityService;
     }
 
     // =====================================================
     // CREATE COMPLAINT
+    // Duplicates (same category, same spot) are merged
+    // automatically - see ComplaintService#create.
+    // Response field "submissionResult": NEW | MERGED | ALREADY_REPORTED
     // =====================================================
 
     @PostMapping
@@ -66,133 +69,45 @@ public class ComplaintController {
             @RequestBody Complaint complaint,
             Principal principal) {
 
-        // =================================================
-        // GET LOGGED-IN CITIZEN
-        // =================================================
-
-        String email = principal.getName();
-
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
-
-        // =================================================
-        // SET CITIZEN
-        // =================================================
-
-        complaint.setUser(user);
-
-        // =================================================
-        // EVERY NEW COMPLAINT STARTS AS PENDING
-        // =================================================
-
-        complaint.setStatus("PENDING");
-
-        // =================================================
-        // CATEGORY-BASED PRIORITY
-        // =================================================
-
-        String priority =
-                complaintSlaService.getPriority(
-                        complaint.getCategory()
-                );
-
-        complaint.setPriority(priority);
-
-        // =================================================
-        // CREATE TIME
-        // =================================================
-
-        LocalDateTime createdAt =
-                LocalDateTime.now();
-
-        complaint.setCreatedAt(createdAt);
-
-        // =================================================
-        // CATEGORY-BASED SLA
-        // =================================================
-
-        int resolutionDays =
-                complaintSlaService.getResolutionDays(
-                        complaint.getCategory()
-                );
-
-        LocalDateTime dueAt =
-                createdAt.plusDays(resolutionDays);
-
-        complaint.setDueAt(dueAt);
-
-        // =================================================
-        // ESCALATION DEFAULT
-        // =================================================
-
-        complaint.setEscalated(false);
-
-        complaint.setEscalatedAt(null);
-
-        // =================================================
-        // NO CONTRACTOR INITIALLY
-        // =================================================
-
-        complaint.setContractor(null);
-
-        // =================================================
-        // SAVE COMPLAINT
-        // =================================================
-
-        return complaintRepository.save(complaint);
+        return complaintService.create(complaint, currentUser(principal));
     }
 
     // =====================================================
-    // GET ALL COMPLAINTS
+    // GET ALL COMPLAINTS (master complaints only,
+    // highest severity first)
+    // ?includeMerged=true also returns child reports
     // =====================================================
 
     @GetMapping
     public List<Complaint> getComplaints(
+            @RequestParam(defaultValue = "false") boolean includeMerged,
             Principal principal) {
 
-        List<Complaint> complaints =
-                complaintRepository.findAll();
+        List<Complaint> complaints = new ArrayList<>(
+                includeMerged
+                        ? complaintRepository.findAll()
+                        : complaintRepository.findByMergedIntoIdIsNull());
 
-        String email = principal.getName();
+        complaints.sort(BY_SEVERITY);
 
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
-
-        addLikeInformation(
-                complaints,
-                user
-        );
+        addLikeInformation(complaints, currentUser(principal));
 
         return complaints;
     }
 
     // =====================================================
-    // GET MY COMPLAINTS
-    // Logged-in citizen complaints
+    // GET MY COMPLAINTS (including the ones merged
+    // into somebody else's report)
     // =====================================================
 
     @GetMapping("/my")
-    public List<Complaint> getMyComplaints(
-            Principal principal) {
+    public List<Complaint> getMyComplaints(Principal principal) {
 
-        String email = principal.getName();
+        User user = currentUser(principal);
 
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+        List<Complaint> complaints = complaintRepository.findByUserOrderByIdDesc(user);
 
-        List<Complaint> complaints =
-                complaintRepository.findByUser(user);
-
-        addLikeInformation(
-                complaints,
-                user
-        );
+        addLikeInformation(complaints, user);
 
         return complaints;
     }
@@ -202,133 +117,86 @@ public class ComplaintController {
     // =====================================================
 
     @GetMapping("/assigned")
-    public List<Complaint> getAssignedComplaints(
-            Principal principal) {
+    public List<Complaint> getAssignedComplaints(Principal principal) {
 
-        String email = principal.getName();
+        List<Complaint> complaints = new ArrayList<>(
+                complaintRepository.findByContractorAndMergedIntoIdIsNull(currentUser(principal)));
 
-        User contractor = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("Contractor not found"));
-
-        return complaintRepository
-                .findByContractor(contractor);
-    }
-
-    // =====================================================
-    // GET RECENT COMPLAINTS
-    // =====================================================
-
-    @GetMapping("/recent")
-    public List<Complaint> getRecentComplaints(
-            Principal principal) {
-
-        List<Complaint> complaints =
-                complaintRepository
-                        .findTop10ByOrderByIdDesc();
-
-        String email = principal.getName();
-
-        User user = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
-
-        addLikeInformation(
-                complaints,
-                user
-        );
+        complaints.sort(BY_SEVERITY);
 
         return complaints;
     }
 
     // =====================================================
-    // ADD LIKE INFORMATION TO COMPLAINTS
+    // GET RECENT COMPLAINTS (community feed)
     // =====================================================
 
-    private void addLikeInformation(
-            List<Complaint> complaints,
-            User currentUser) {
+    @GetMapping("/recent")
+    public List<Complaint> getRecentComplaints(Principal principal) {
 
-        if (complaints == null ||
-                complaints.isEmpty()) {
+        List<Complaint> complaints = complaintRepository.findTop20ByMergedIntoIdIsNullOrderByIdDesc();
 
-            return;
-        }
+        addLikeInformation(complaints, currentUser(principal));
 
-        // =============================================
-        // GET COMPLAINT IDs
-        // =============================================
+        return complaints;
+    }
 
-        List<Long> complaintIds =
-                complaints.stream()
-                        .map(Complaint::getId)
-                        .toList();
+    // =====================================================
+    // MERGED REPORTS OF A COMPLAINT
+    // Who else reported the same issue
+    // =====================================================
 
-        // =============================================
-        // GET LIKE COUNTS
-        // ONE DATABASE QUERY
-        // =============================================
+    @GetMapping("/{id}/reports")
+    public List<Complaint> getMergedReports(@PathVariable Long id) {
 
-        List<Object[]> countResults =
-                likeRepository.countLikesForComplaints(
-                        complaintIds
-                );
+        Complaint master = complaintService.masterOf(complaintService.get(id));
 
-        Map<Long, Long> likeCounts =
-                new HashMap<>();
+        List<Complaint> reports = new ArrayList<>();
+        reports.add(master);
+        reports.addAll(complaintRepository.findByMergedIntoIdOrderByIdAsc(master.getId()));
 
-        for (Object[] row : countResults) {
+        return reports;
+    }
 
-            Long complaintId =
-                    ((Number) row[0]).longValue();
+    // =====================================================
+    // SEVERITY
+    // =====================================================
 
-            Long count =
-                    ((Number) row[1]).longValue();
+    // Re-run the full location analysis (OpenStreetMap)
+    @PostMapping("/{id}/severity/refresh")
+    public Map<String, Object> refreshSeverity(@PathVariable Long id) {
 
-            likeCounts.put(
-                    complaintId,
-                    count
-            );
-        }
+        Complaint master = complaintService.masterOf(complaintService.get(id));
 
-        // =============================================
-        // GET COMPLAINTS LIKED BY CURRENT USER
-        // ONE DATABASE QUERY
-        // =============================================
+        severityService.refreshAsync(master.getId());
 
-        List<Long> likedComplaintIds =
-                likeRepository.findLikedComplaintIds(
-                        currentUser.getId(),
-                        complaintIds
-                );
+        return Map.of(
+                "message", "Severity analysis started",
+                "complaintId", master.getId());
+    }
 
-        Set<Long> likedIds =
-                new HashSet<>(
-                        likedComplaintIds
-                );
+    // Re-score every open complaint
+    @PostMapping("/severity/recompute")
+    public Map<String, Object> recomputeAll() {
 
-        // =============================================
-        // SET LIKE INFORMATION
-        // =============================================
+        int count = complaintService.recomputeAllOpen();
 
-        for (Complaint complaint : complaints) {
+        return Map.of(
+                "message", "Severity recomputed",
+                "complaints", count);
+    }
 
-            long count =
-                    likeCounts.getOrDefault(
-                            complaint.getId(),
-                            0L
-                    );
+    // =====================================================
+    // MANUAL MERGE
+    // PUT /api/complaints/{duplicateId}/merge/{masterId}
+    // =====================================================
 
-            complaint.setLikeCount(count);
+    @PutMapping("/{duplicateId}/merge/{masterId}")
+    public Complaint mergeComplaint(
+            @PathVariable Long duplicateId,
+            @PathVariable Long masterId) {
 
-            complaint.setLiked(
-                    likedIds.contains(
-                            complaint.getId()
-                    )
-            );
-        }
+        return complaintService.merge(duplicateId, masterId);
     }
 
     // =====================================================
@@ -386,6 +254,12 @@ public class ComplaintController {
 
             if (complaint.getLatitude() == null ||
                     complaint.getLongitude() == null) {
+
+                continue;
+            }
+
+            // Merged duplicates are shown through their master
+            if (complaint.getMergedIntoId() != null) {
 
                 continue;
             }
@@ -493,302 +367,101 @@ public class ComplaintController {
     // =====================================================
 
     @GetMapping("/{id}")
-    public Complaint getComplaint(
-            @PathVariable Long id) {
+    public Complaint getComplaint(@PathVariable Long id) {
 
-        return complaintRepository
-                .findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Complaint not found"
-                        ));
+        return complaintService.get(id);
     }
 
     // =====================================================
-    // VERIFY COMPLAINT
-    // PENDING -> VERIFIED
+    // STATUS TRANSITIONS
+    // PENDING -> VERIFIED -> ASSIGNED -> IN_PROGRESS
+    //         -> COMPLETED -> RESOLVED
     // =====================================================
 
     @PutMapping("/{id}/verify")
-    public Complaint verifyComplaint(
-            @PathVariable Long id) {
+    public Complaint verifyComplaint(@PathVariable Long id) {
 
-        Complaint complaint =
-                complaintRepository
-                        .findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Complaint not found"
-                                ));
-
-        if (!"PENDING".equals(
-                complaint.getStatus())) {
-
-            throw new RuntimeException(
-                    "Only PENDING complaints can be verified"
-            );
-        }
-
-        complaint.setStatus("VERIFIED");
-
-        return complaintRepository.save(
-                complaint
-        );
+        return complaintService.verify(id);
     }
-
-    // =====================================================
-    // ASSIGN CONTRACTOR
-    // VERIFIED -> ASSIGNED
-    // =====================================================
 
     @PutMapping("/{complaintId}/assign/{contractorId}")
     public Complaint assignContractor(
             @PathVariable Long complaintId,
             @PathVariable Long contractorId) {
 
-        // =============================================
-        // GET COMPLAINT
-        // =============================================
-
-        Complaint complaint =
-                complaintRepository
-                        .findById(complaintId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Complaint not found"
-                                ));
-
-        // =============================================
-        // GET CONTRACTOR
-        // =============================================
-
-        User contractor =
-                userRepository
-                        .findById(contractorId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Contractor not found"
-                                ));
-
-        // =============================================
-        // VERIFY USER ROLE
-        // =============================================
-
-        if (contractor.getRole() !=
-                Role.CONTRACTOR) {
-
-            throw new RuntimeException(
-                    "Selected user is not a contractor"
-            );
-        }
-
-        // =============================================
-        // COMPLAINT MUST BE VERIFIED
-        // =============================================
-
-        if (!"VERIFIED".equals(
-                complaint.getStatus())) {
-
-            throw new RuntimeException(
-                    "Only VERIFIED complaints can be assigned"
-            );
-        }
-
-        complaint.setContractor(
-                contractor
-        );
-
-        complaint.setStatus(
-                "ASSIGNED"
-        );
-
-        return complaintRepository.save(
-                complaint
-        );
+        return complaintService.assign(complaintId, contractorId);
     }
-
-    // =====================================================
-    // START WORK
-    // ASSIGNED -> IN_PROGRESS
-    // =====================================================
 
     @PutMapping("/{id}/start")
     public Complaint startComplaint(
             @PathVariable Long id,
             Principal principal) {
 
-        // =============================================
-        // GET COMPLAINT
-        // =============================================
-
-        Complaint complaint =
-                complaintRepository
-                        .findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Complaint not found"
-                                ));
-
-        // =============================================
-        // GET LOGGED-IN CONTRACTOR
-        // =============================================
-
-        String email =
-                principal.getName();
-
-        User contractor =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Contractor not found"
-                                ));
-
-        // =============================================
-        // CHECK ASSIGNMENT
-        // =============================================
-
-        if (complaint.getContractor() == null ||
-                !complaint
-                        .getContractor()
-                        .getId()
-                        .equals(
-                                contractor.getId()
-                        )) {
-
-            throw new RuntimeException(
-                    "This complaint is not assigned to you"
-            );
-        }
-
-        // =============================================
-        // CHECK STATUS
-        // =============================================
-
-        if (!"ASSIGNED".equals(
-                complaint.getStatus())) {
-
-            throw new RuntimeException(
-                    "Only ASSIGNED complaints can be started"
-            );
-        }
-
-        complaint.setStatus(
-                "IN_PROGRESS"
-        );
-
-        return complaintRepository.save(
-                complaint
-        );
+        return complaintService.start(id, currentUser(principal));
     }
-
-    // =====================================================
-    // COMPLETE WORK
-    // IN_PROGRESS -> COMPLETED
-    // =====================================================
 
     @PutMapping("/{id}/complete")
     public Complaint completeComplaint(
             @PathVariable Long id,
             Principal principal) {
 
-        // =============================================
-        // GET COMPLAINT
-        // =============================================
+        return complaintService.complete(id, currentUser(principal));
+    }
 
-        Complaint complaint =
-                complaintRepository
-                        .findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Complaint not found"
-                                ));
+    @PutMapping("/{id}/resolve")
+    public Complaint resolveComplaint(@PathVariable Long id) {
 
-        // =============================================
-        // GET CONTRACTOR
-        // =============================================
+        return complaintService.resolve(id);
+    }
 
-        String email =
-                principal.getName();
+    // Officer rejects the completed work -> back to IN_PROGRESS
+    @PutMapping("/{id}/reopen")
+    public Complaint reopenComplaint(@PathVariable Long id) {
 
-        User contractor =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Contractor not found"
-                                ));
-
-        // =============================================
-        // CHECK ASSIGNMENT
-        // =============================================
-
-        if (complaint.getContractor() == null ||
-                !complaint
-                        .getContractor()
-                        .getId()
-                        .equals(
-                                contractor.getId()
-                        )) {
-
-            throw new RuntimeException(
-                    "This complaint is not assigned to you"
-            );
-        }
-
-        // =============================================
-        // CHECK STATUS
-        // =============================================
-
-        if (!"IN_PROGRESS".equals(
-                complaint.getStatus())) {
-
-            throw new RuntimeException(
-                    "Only IN_PROGRESS complaints can be completed"
-            );
-        }
-
-        complaint.setStatus(
-                "COMPLETED"
-        );
-
-        return complaintRepository.save(
-                complaint
-        );
+        return complaintService.reopen(id);
     }
 
     // =====================================================
-    // RESOLVE COMPLAINT
-    // COMPLETED -> RESOLVED
+    // HELPERS
     // =====================================================
 
-    @PutMapping("/{id}/resolve")
-    public Complaint resolveComplaint(
-            @PathVariable Long id) {
+    private static final Comparator<Complaint> BY_SEVERITY =
+            Comparator.comparing(
+                            (Complaint c) -> c.getSeverityScore() == null ? 0.0 : c.getSeverityScore())
+                    .reversed()
+                    .thenComparing(Complaint::getId, Comparator.reverseOrder());
 
-        Complaint complaint =
-                complaintRepository
-                        .findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Complaint not found"
-                                ));
+    private User currentUser(Principal principal) {
 
-        if (!"COMPLETED".equals(
-                complaint.getStatus())) {
-
-            throw new RuntimeException(
-                    "Only COMPLETED complaints can be resolved"
-            );
+        if (principal == null) {
+            throw new RuntimeException("Please sign in again");
         }
 
-        complaint.setStatus(
-                "RESOLVED"
-        );
+        return userRepository
+                .findByEmail(principal.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
 
-        return complaintRepository.save(
-                complaint
-        );
+    private void addLikeInformation(List<Complaint> complaints, User currentUser) {
+
+        if (complaints == null || complaints.isEmpty()) {
+            return;
+        }
+
+        List<Long> complaintIds = complaints.stream().map(Complaint::getId).toList();
+
+        Map<Long, Long> likeCounts = new HashMap<>();
+        for (Object[] row : likeRepository.countLikesForComplaints(complaintIds)) {
+            likeCounts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+        }
+
+        Set<Long> likedIds = new HashSet<>(
+                likeRepository.findLikedComplaintIds(currentUser.getId(), complaintIds));
+
+        for (Complaint complaint : complaints) {
+            complaint.setLikeCount(likeCounts.getOrDefault(complaint.getId(), 0L));
+            complaint.setLiked(likedIds.contains(complaint.getId()));
+        }
     }
 
     // =====================================================

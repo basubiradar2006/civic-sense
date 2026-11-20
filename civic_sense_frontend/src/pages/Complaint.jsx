@@ -790,9 +790,22 @@ function Complaint() {
             // 9. SUCCESS
             // =================================================
 
-            alert(
-                `Complaint submitted successfully!\nComplaint ID: ${savedComplaint.id}`
-            );
+            const code =
+                `CP-${String(savedComplaint.id).padStart(4, "0")}`;
+
+            if (savedComplaint.submissionResult === "ALREADY_REPORTED") {
+                alert(
+                    `You have already reported this issue (${code}).\nWe'll keep you updated on its progress.`
+                );
+            } else if (savedComplaint.submissionResult === "MERGED") {
+                alert(
+                    `Thanks! This issue was already reported nearby.\nYour report was added to it - ${savedComplaint.reportCount || 2} citizens have now reported it, which raises its priority.\nReference: ${code}`
+                );
+            } else {
+                alert(
+                    `Complaint submitted successfully!\nComplaint ID: ${code}`
+                );
+            }
 
             navigate("/citizen");
 

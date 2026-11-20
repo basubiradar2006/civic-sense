@@ -1,1417 +1,399 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../styles/Citizen.css";
 import ComplaintLike from "../components/ComplaintLike";
+import {
+    ActivityBell,
+    AppHeader,
+    EmptyState,
+    Icon,
+    MediaModal,
+    MediaThumb,
+    ReportCount,
+    SeverityBadge,
+    SkeletonList,
+    StatCard,
+    StatusBadge,
+    StatusTimeline,
+    ToastStack,
+} from "../components/ui";
+import { AuthError, api, clearSession, getStoredUser, upsertById } from "../lib/api";
+import { describeEvent } from "../lib/events";
+import {
+    CATEGORIES,
+    complaintCode,
+    isOpen,
+    reportCount,
+    shortAddress,
+    statusLabel,
+    timeAgo,
+} from "../lib/format";
+import { useRealtime } from "../lib/useRealtime";
+import { useToasts } from "../lib/useToasts";
+import "../styles/Dashboard.css";
 
+function greeting() {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+}
 
 function Citizen() {
     const navigate = useNavigate();
+    const user = useMemo(() => getStoredUser(), []);
+    const myId = user?.userId ?? user?.id;
 
-    const API_URL = import.meta.env.VITE_API_URL;
-
-    // =====================================================
-    // STATE
-    // =====================================================
-
-    const [myComplaints, setMyComplaints] = useState([]);
-    const [recentComplaints, setRecentComplaints] = useState([]);
-
-    const [complaintView, setComplaintView] = useState("MY");
-    const [categoryFilter, setCategoryFilter] = useState("ALL");
-
+    const [mine, setMine] = useState([]);
+    const [feed, setFeed] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const [user, setUser] = useState(null);
+    const [view, setView] = useState("MINE");
+    const [statusFilter, setStatusFilter] = useState("ALL");
+    const [category, setCategory] = useState("ALL");
+
+    const [media, setMedia] = useState(null);
+    const [flashIds, setFlashIds] = useState([]);
+    const [activity, setActivity] = useState([]);
+    const { toasts, push, dismiss } = useToasts();
 
     // =====================================================
-    // MEDIA POPUP
+    // LOAD
     // =====================================================
 
-    const [selectedMedia, setSelectedMedia] = useState(null);
-
-    // =====================================================
-    // LOAD USER
-    // =====================================================
-
-    useEffect(() => {
-        const storedUser = localStorage.getItem("user");
-
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (error) {
-                console.error("Failed to parse user:", error);
-            }
-        }
-    }, []);
-
-    // =====================================================
-    // FETCH COMPLAINTS
-    // =====================================================
-
-    useEffect(() => {
-        const MY_COMPLAINTS_CACHE_KEY =
-            "citizenMyComplaints";
-
-        const RECENT_COMPLAINTS_CACHE_KEY =
-            "citizenRecentComplaints";
-
-        const cachedMyComplaints =
-            sessionStorage.getItem(
-                MY_COMPLAINTS_CACHE_KEY
-            );
-
-        const cachedRecentComplaints =
-            sessionStorage.getItem(
-                RECENT_COMPLAINTS_CACHE_KEY
-            );
-
-        // Show cached data immediately when returning
-        // from the complaint details page.
-        if (cachedMyComplaints) {
-            try {
-                const parsedMyComplaints =
-                    JSON.parse(cachedMyComplaints);
-
-                if (Array.isArray(parsedMyComplaints)) {
-                    setMyComplaints(parsedMyComplaints);
-                }
-            } catch (error) {
-                console.error(
-                    "Failed to read cached citizen complaints:",
-                    error
-                );
-
-                sessionStorage.removeItem(
-                    MY_COMPLAINTS_CACHE_KEY
-                );
-            }
-        }
-
-        if (cachedRecentComplaints) {
-            try {
-                const parsedRecentComplaints =
-                    JSON.parse(cachedRecentComplaints);
-
-                if (Array.isArray(parsedRecentComplaints)) {
-                    setRecentComplaints(
-                        parsedRecentComplaints
-                    );
-                }
-            } catch (error) {
-                console.error(
-                    "Failed to read cached recent complaints:",
-                    error
-                );
-
-                sessionStorage.removeItem(
-                    RECENT_COMPLAINTS_CACHE_KEY
-                );
-            }
-        }
-
-        const hasCachedData =
-            !!cachedMyComplaints ||
-            !!cachedRecentComplaints;
-
-        // If we have cached data, don't show the full-page
-        // loading screen again when returning from View Details.
-        if (hasCachedData) {
-            setLoading(false);
-        }
-
-        const fetchComplaints = async () => {
-            const token =
-                localStorage.getItem("token");
-
-            if (!token) {
+    const load = useCallback(async () => {
+        try {
+            const [my, recent] = await Promise.all([
+                api("/api/complaints/my"),
+                api("/api/complaints/recent"),
+            ]);
+            setMine(Array.isArray(my) ? my : []);
+            setFeed(Array.isArray(recent) ? recent : []);
+            setError("");
+        } catch (err) {
+            if (err instanceof AuthError) {
                 navigate("/");
                 return;
             }
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [navigate]);
 
-            try {
-                // Only show loading on the first visit.
-                if (!hasCachedData) {
-                    setLoading(true);
-                }
-
-                setError("");
-
-                const [myResponse, recentResponse] =
-                    await Promise.all([
-                        fetch(
-                            `${API_URL}/api/complaints/my`,
-                            {
-                                method: "GET",
-                                headers: {
-                                    Authorization:
-                                        `Bearer ${token}`,
-                                    "Content-Type":
-                                        "application/json",
-                                },
-                            }
-                        ),
-
-                        fetch(
-                            `${API_URL}/api/complaints/recent`,
-                            {
-                                method: "GET",
-                                headers: {
-                                    Authorization:
-                                        `Bearer ${token}`,
-                                    "Content-Type":
-                                        "application/json",
-                                },
-                            }
-                        ),
-                    ]);
-
-                // =================================================
-                // AUTHENTICATION ERROR
-                // =================================================
-
-                if (
-                    myResponse.status === 401 ||
-                    myResponse.status === 403 ||
-                    recentResponse.status === 401 ||
-                    recentResponse.status === 403
-                ) {
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("user");
-                    sessionStorage.removeItem(
-                        MY_COMPLAINTS_CACHE_KEY
-                    );
-                    sessionStorage.removeItem(
-                        RECENT_COMPLAINTS_CACHE_KEY
-                    );
-
-                    navigate("/");
-                    return;
-                }
-
-                // =================================================
-                // MY COMPLAINTS ERROR
-                // =================================================
-
-                if (!myResponse.ok) {
-                    const errorText =
-                        await myResponse.text();
-
-                    console.error(
-                        "My complaints error:",
-                        errorText
-                    );
-
-                    throw new Error(
-                        "Failed to fetch my complaints"
-                    );
-                }
-
-                // =================================================
-                // RECENT COMPLAINTS ERROR
-                // =================================================
-
-                if (!recentResponse.ok) {
-                    const errorText =
-                        await recentResponse.text();
-
-                    console.error(
-                        "Recent complaints error:",
-                        errorText
-                    );
-
-                    throw new Error(
-                        "Failed to fetch recent complaints"
-                    );
-                }
-
-                // =================================================
-                // JSON
-                // =================================================
-
-                const myData =
-                    await myResponse.json();
-
-                const recentData =
-                    await recentResponse.json();
-
-                console.log(
-                    "My Complaints:",
-                    myData
-                );
-
-                console.log(
-                    "Recent Complaints:",
-                    recentData
-                );
-
-                const freshMyComplaints =
-                    Array.isArray(myData)
-                        ? myData
-                        : [];
-
-                const freshRecentComplaints =
-                    Array.isArray(recentData)
-                        ? recentData
-                        : [];
-
-                // Update UI with fresh data.
-                setMyComplaints(
-                    freshMyComplaints
-                );
-
-                setRecentComplaints(
-                    freshRecentComplaints
-                );
-
-                // Save latest data for instant return
-                // from View Details.
-                sessionStorage.setItem(
-                    MY_COMPLAINTS_CACHE_KEY,
-                    JSON.stringify(
-                        freshMyComplaints
-                    )
-                );
-
-                sessionStorage.setItem(
-                    RECENT_COMPLAINTS_CACHE_KEY,
-                    JSON.stringify(
-                        freshRecentComplaints
-                    )
-                );
-            } catch (err) {
-                console.error(
-                    "Citizen dashboard error:",
-                    err
-                );
-
-                // If cached data exists, keep displaying it.
-                // Only show the error on the first load.
-                if (!hasCachedData) {
-                    setError(
-                        err.message ||
-                            "Unable to load complaints."
-                    );
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchComplaints();
-    }, [API_URL, navigate]);
+    useEffect(() => {
+        if (!user) {
+            navigate("/");
+            return;
+        }
+        // Initial data fetch; state is only set after the request resolves
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        load();
+    }, [load, navigate, user]);
 
     // =====================================================
-    // CURRENT COMPLAINTS
+    // REAL-TIME
     // =====================================================
 
-    const currentComplaints =
-        complaintView === "MY"
-            ? myComplaints
-            : recentComplaints;
+    const flash = (id) => {
+        setFlashIds((ids) => [...ids, id]);
+        setTimeout(() => setFlashIds((ids) => ids.filter((x) => x !== id)), 2500);
+    };
 
-    // =====================================================
-    // CATEGORY LIST
-    // =====================================================
+    const live = useRealtime((event) => {
+        const c = event.complaint;
+        if (!c) return;
 
-    const categories = useMemo(() => {
-        const uniqueCategories = [
-            ...myComplaints,
-            ...recentComplaints,
-        ]
-            .map((complaint) => complaint.category)
-            .filter(Boolean);
+        const isMine = c.user?.id === myId;
 
-        return [
-            "ALL",
-            ...new Set(uniqueCategories),
-        ];
-    }, [myComplaints, recentComplaints]);
+        // ---- my own complaints ----
+        if (isMine) {
+            setMine((list) => upsertById(list, c));
+        }
 
-    // =====================================================
-    // FILTER
-    // =====================================================
+        // A master changed: mirror it on my merged reports
+        if (!c.mergedIntoId) {
+            setMine((list) => {
+                let touched = false;
+                const next = list.map((item) => {
+                    if (item.mergedIntoId !== c.id) return item;
+                    touched = true;
+                    return {
+                        ...item,
+                        status: c.status,
+                        reportCount: c.reportCount,
+                        severityScore: c.severityScore,
+                        severityLevel: c.severityLevel,
+                        priority: c.priority,
+                        contractor: c.contractor,
+                    };
+                });
+                return touched ? next : list;
+            });
+        }
 
-    const displayedComplaints =
-        currentComplaints.filter((complaint) => {
-            if (categoryFilter === "ALL") {
-                return true;
-            }
+        // ---- community feed (master complaints only) ----
+        if (!c.mergedIntoId) {
+            setFeed((list) => {
+                const exists = list.some((x) => x.id === c.id);
+                if (!exists && event.type !== "CREATED") return list;
+                return upsertById(list, c).slice(0, 30);
+            });
+        }
 
-            return (
-                complaint.category === categoryFilter
+        // ---- announce changes that concern me ----
+        const affectsMe =
+            isMine || mine.some((m) => m.mergedIntoId === c.id || m.id === c.id);
+
+        if (affectsMe && (event.type === "UPDATED" || event.type === "ESCALATED")) {
+            push(`${complaintCode(c)} — ${statusLabel(c.status)}`, "success");
+            flash(c.id);
+            mine.filter((m) => m.mergedIntoId === c.id).forEach((m) => flash(m.id));
+        }
+
+        if (affectsMe && event.type === "MERGED") {
+            push(`${reportCount(c)} citizens have now reported ${complaintCode(c)}`, "warn");
+        }
+
+        const described = describeEvent(event);
+        if (described && (affectsMe || event.type === "CREATED")) {
+            setActivity((items) =>
+                [{ ...described, key: `${event.at}-${c.id}-${event.type}`, at: new Date().toISOString(), id: c.id }, ...items].slice(0, 30)
             );
-        });
+        }
+    }, load);
+
+    // Fallback refresh when the live stream is down
+    useEffect(() => {
+        if (live === "live") return undefined;
+        const timer = setInterval(load, 30000);
+        return () => clearInterval(timer);
+    }, [live, load]);
 
     // =====================================================
-    // CHANGE VIEW
+    // DERIVED
     // =====================================================
 
-    const handleComplaintViewChange = (view) => {
-        setComplaintView(view);
-        setCategoryFilter("ALL");
-    };
+    const stats = useMemo(() => {
+        const open = mine.filter(isOpen);
+        return {
+            total: mine.length,
+            open: open.length,
+            active: mine.filter((c) => ["ASSIGNED", "IN_PROGRESS"].includes(c.status)).length,
+            resolved: mine.filter((c) => !isOpen(c)).length,
+            coReported: mine.filter((c) => reportCount(c) > 1).length,
+        };
+    }, [mine]);
 
-    // =====================================================
-    // VIEW DETAILS
-    // =====================================================
+    const list = view === "MINE" ? mine : feed;
 
-    const handleViewDetails = (complaint) => {
-        navigate(`/report/${complaint.id}`, {
-            state: {
-                complaint,
-            },
-        });
-    };
+    const visible = list.filter((c) => {
+        if (category !== "ALL" && c.category !== category) return false;
+        if (statusFilter === "OPEN" && !isOpen(c)) return false;
+        if (statusFilter === "CLOSED" && isOpen(c)) return false;
+        return true;
+    });
 
-    // =====================================================
-    // LOGOUT
-    // =====================================================
-
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("username");
-
-        // Clear cached citizen data on logout.
-        sessionStorage.removeItem(
-            "citizenMyComplaints"
-        );
-
-        sessionStorage.removeItem(
-            "citizenRecentComplaints"
-        );
-
+    const logout = () => {
+        clearSession();
         navigate("/");
     };
 
     // =====================================================
-    // DISPLAY USER NAME
-    // =====================================================
-
-    const displayName =
-        user?.name ||
-        user?.userName ||
-        user?.username ||
-        user?.email ||
-        localStorage.getItem("username") ||
-        "Citizen";
-
-    // =====================================================
-    // STATISTICS
-    // =====================================================
-
-    const totalMyComplaints =
-        myComplaints.length;
-
-    const pendingCount =
-        myComplaints.filter(
-            (complaint) =>
-                String(
-                    complaint.status || ""
-                ).toUpperCase() === "PENDING"
-        ).length;
-
-    const assignedCount =
-        myComplaints.filter(
-            (complaint) =>
-                String(
-                    complaint.status || ""
-                ).toUpperCase() === "ASSIGNED"
-        ).length;
-
-    const inProgressCount =
-        myComplaints.filter(
-            (complaint) =>
-                String(
-                    complaint.status || ""
-                ).toUpperCase() === "IN_PROGRESS"
-        ).length;
-
-    const completedCount =
-        myComplaints.filter(
-            (complaint) =>
-                String(
-                    complaint.status || ""
-                ).toUpperCase() === "COMPLETED"
-        ).length;
-
-    const resolvedCount =
-        myComplaints.filter((complaint) => {
-            const status = String(
-                complaint.status || ""
-            ).toUpperCase();
-
-            return (
-                status === "RESOLVED" ||
-                status === "COMPLETED"
-            );
-        }).length;
-
-    // =====================================================
-    // STATUS CLASS
-    // =====================================================
-
-    const getStatusClass = (status) => {
-        if (!status) {
-            return "unknown";
-        }
-
-        return String(status)
-            .toLowerCase()
-            .replace(/\s+/g, "-");
-    };
-
-    // =====================================================
-    // STATUS TEXT
-    // =====================================================
-
-    const getStatusText = (status) => {
-        if (!status) {
-            return "UNKNOWN";
-        }
-
-        return String(status).replace(/_/g, " ");
-    };
-
-    // =====================================================
-    // VIDEO CHECK
-    // =====================================================
-
-    const isVideoMedia = (complaint) => {
-        const mediaType = String(
-            complaint?.mediaType || ""
-        ).toUpperCase();
-
-        if (mediaType === "VIDEO") {
-            return true;
-        }
-
-        const url = String(
-            complaint?.mediaUrl || ""
-        ).toLowerCase();
-
-        return (
-            url.includes(".webm") ||
-            url.includes(".mp4") ||
-            url.includes(".mov") ||
-            url.includes(".m4v") ||
-            url.includes(".ogg")
-        );
-    };
-
-    // =====================================================
-    // OPEN MEDIA
-    // =====================================================
-
-    const openMediaPopup = (complaint) => {
-        if (!complaint?.mediaUrl) {
-            return;
-        }
-
-        const video = isVideoMedia(complaint);
-
-        setSelectedMedia({
-            url: complaint.mediaUrl,
-            type: video ? "VIDEO" : "PHOTO",
-            category:
-                complaint.category ||
-                "Complaint Evidence",
-        });
-    };
-
-    // =====================================================
-    // CLOSE MEDIA
-    // =====================================================
-
-    const closeMediaPopup = () => {
-        setSelectedMedia(null);
-    };
-
-    // =====================================================
-    // ESCAPE
-    // =====================================================
-
-    useEffect(() => {
-        const handleEscape = (event) => {
-            if (event.key === "Escape") {
-                closeMediaPopup();
-            }
-        };
-
-        window.addEventListener(
-            "keydown",
-            handleEscape
-        );
-
-        return () => {
-            window.removeEventListener(
-                "keydown",
-                handleEscape
-            );
-        };
-    }, []);
-
-    // =====================================================
-    // LOADING
-    // =====================================================
-
-    if (loading) {
-        return (
-            <div className="citizen-page">
-
-                <header className="citizen-header">
-
-                    <div className="citizen-brand">
-
-                        <div className="citizen-brand-logo">
-                            CP
-                        </div>
-
-                        <div>
-                            <div className="citizen-brand-name">
-                                CivicProof
-                            </div>
-
-                            <div className="citizen-brand-subtitle">
-                                MUNICIPAL OPERATIONS
-                            </div>
-                        </div>
-
-                    </div>
-
-                </header>
-
-                <main className="citizen-main">
-
-                    <div className="citizen-loading">
-
-                        <div className="citizen-loading-spinner">
-                            ◌
-                        </div>
-
-                        <h2>
-                            Loading dashboard...
-                        </h2>
-
-                    </div>
-
-                </main>
-
-            </div>
-        );
-    }
-
-    // =====================================================
-    // MAIN PAGE
+    // RENDER
     // =====================================================
 
     return (
-        <div className="citizen-page">
+        <div className="cp-app">
+            <AppHeader role="Citizen" user={user} live={live} onLogout={logout}>
+                <ActivityBell
+                    items={activity}
+                    onSelect={(item) => navigate(`/report/${item.id}`)}
+                />
+            </AppHeader>
 
-            {/* =================================================
-                HEADER
-            ================================================= */}
-
-            <header className="citizen-header">
-
-                <div className="citizen-brand">
-
-                    <div className="citizen-brand-logo">
-                        CP
-                    </div>
-
+            <main className="cp-main">
+                <section className="cp-hero">
                     <div>
-
-                        <div className="citizen-brand-name">
-                            CivicProof
-                        </div>
-
-                        <div className="citizen-brand-subtitle">
-                            MUNICIPAL OPERATIONS
-                        </div>
-
+                        <div className="cp-eyebrow">Citizen dashboard</div>
+                        <h1>
+                            {greeting()}, {(user?.name || "there").split(" ")[0]}
+                        </h1>
+                        <p>
+                            Report problems in your area and follow every repair live.
+                            If someone already reported the same issue, your report is
+                            added to theirs, so it gets fixed faster.
+                        </p>
                     </div>
-
-                </div>
-
-                <div className="citizen-header-right">
-
-                    <div className="citizen-user">
-
-                        <span className="citizen-online-dot"></span>
-
-                        <span>
-                            {displayName}
-                        </span>
-
+                    <div className="cp-hero-actions">
+                        <button
+                            className="cp-btn cp-btn-ghost"
+                            onClick={() => navigate("/nearby-complaints")}
+                        >
+                            <Icon name="pin" size={16} /> Issues near me
+                        </button>
+                        <button
+                            className="cp-btn cp-btn-primary"
+                            onClick={() => navigate("/complaint")}
+                        >
+                            <Icon name="plus" size={16} /> Report an issue
+                        </button>
                     </div>
-
-                    <span className="citizen-role-badge">
-                        CITIZEN
-                    </span>
-
-                    <button
-                        className="citizen-logout-btn"
-                        onClick={handleLogout}
-                    >
-                        Logout
-                    </button>
-
-                </div>
-
-            </header>
-
-
-            {/* =================================================
-                MAIN
-            ================================================= */}
-
-            <main className="citizen-main">
-
-                {/* =================================================
-                    INTRO
-                ================================================= */}
-
-                <section className="citizen-dashboard-intro">
-
-                    <div className="citizen-eyebrow">
-                        CITIZEN OPERATIONS
-                    </div>
-
-                    <h1>
-                        Citizen Dashboard
-                    </h1>
-
-                    <p>
-                        Track your complaints, report
-                        issues and monitor civic work.
-                    </p>
-
                 </section>
 
-
-                {/* =================================================
-                    STATISTICS
-                ================================================= */}
-
-                <section className="citizen-stats">
-
-                    <div className="citizen-stat-card total">
-
-                        <div className="citizen-stat-title">
-                            MY COMPLAINTS
-                        </div>
-
-                        <div className="citizen-stat-number">
-                            {totalMyComplaints}
-                        </div>
-
-                        <div className="citizen-stat-description">
-                            All reported issues
-                        </div>
-
+                {error && (
+                    <div className="cp-error">
+                        <Icon name="alert" /> {error}
+                        <button className="cp-btn cp-btn-sm cp-btn-ghost" onClick={load}>
+                            Retry
+                        </button>
                     </div>
+                )}
 
-
-                    <div className="citizen-stat-card pending">
-
-                        <div className="citizen-stat-title">
-                            PENDING
-                        </div>
-
-                        <div className="citizen-stat-number">
-                            {pendingCount}
-                        </div>
-
-                        <div className="citizen-stat-description">
-                            Awaiting verification
-                        </div>
-
-                    </div>
-
-
-                    <div className="citizen-stat-card assigned">
-
-                        <div className="citizen-stat-title">
-                            ASSIGNED
-                        </div>
-
-                        <div className="citizen-stat-number">
-                            {assignedCount}
-                        </div>
-
-                        <div className="citizen-stat-description">
-                            Contractor assigned
-                        </div>
-
-                    </div>
-
-
-                    <div className="citizen-stat-card progress">
-
-                        <div className="citizen-stat-title">
-                            ACTIVE REPAIRS
-                        </div>
-
-                        <div className="citizen-stat-number">
-                            {inProgressCount}
-                        </div>
-
-                        <div className="citizen-stat-description">
-                            Work currently active
-                        </div>
-
-                    </div>
-
-
-                    <div className="citizen-stat-card completed">
-
-                        <div className="citizen-stat-title">
-                            COMPLETED
-                        </div>
-
-                        <div className="citizen-stat-number">
-                            {completedCount}
-                        </div>
-
-                        <div className="citizen-stat-description">
-                            Work completed
-                        </div>
-
-                    </div>
-
-
-                    <div className="citizen-stat-card resolved">
-
-                        <div className="citizen-stat-title">
-                            RESOLVED
-                        </div>
-
-                        <div className="citizen-stat-number">
-                            {resolvedCount}
-                        </div>
-
-                        <div className="citizen-stat-description">
-                            Closed complaints
-                        </div>
-
-                    </div>
-
+                <section className="cp-stats">
+                    <StatCard label="My reports" value={stats.total} hint="All time" icon="layers" />
+                    <StatCard label="Open" value={stats.open} hint="Waiting or being fixed" tone="medium" icon="clock" />
+                    <StatCard label="Being repaired" value={stats.active} hint="Contractor on it" tone="high" icon="wrench" />
+                    <StatCard label="Fixed" value={stats.resolved} hint="Completed or resolved" tone="low" icon="check" />
+                    <StatCard label="Co-reported" value={stats.coReported} hint="Others reported it too" tone="info" icon="users" />
                 </section>
 
-
-                {/* =================================================
-                    REPORT BUTTON
-                ================================================= */}
-
-                <div className="citizen-report-action">
-
-                    <button
-                        className="citizen-report-btn"
-                        onClick={() =>
-                            navigate("/complaint")
-                        }
-                    >
-                        + Report New Complaint
-                    </button>
-
-                </div>
-
-
-                {/* =================================================
-                    COMPLAINT SECTION
-                ================================================= */}
-
-                <section className="citizen-complaints-section">
-
-                    {/* =================================================
-                        SECTION HEADER
-                    ================================================= */}
-
-                    <div className="citizen-section-header">
-
-                        <div>
-
-                            <div className="section-eyebrow">
-                                FIELD ACTIVITY
-                            </div>
-
-                            <h2>
-                                My Complaint Ledger
-                            </h2>
-
-                            <p>
-                                Review and track your
-                                civic complaints.
-                            </p>
-
+                <section className="cp-panel">
+                    <div className="cp-panel-head">
+                        <div className="cp-tabs">
+                            <button
+                                className={`cp-tab ${view === "MINE" ? "is-active" : ""}`}
+                                onClick={() => setView("MINE")}
+                            >
+                                My reports <b>{mine.length}</b>
+                            </button>
+                            <button
+                                className={`cp-tab ${view === "FEED" ? "is-active" : ""}`}
+                                onClick={() => setView("FEED")}
+                            >
+                                Community feed <b>{feed.length}</b>
+                            </button>
                         </div>
 
-                        <div className="citizen-section-controls">
-
+                        <div className="cp-filters">
                             <select
-                                className="citizen-category-filter"
-                                value={categoryFilter}
-                                onChange={(event) =>
-                                    setCategoryFilter(
-                                        event.target.value
-                                    )
-                                }
+                                className="cp-select"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
                             >
-
-                                <option value="ALL">
-                                    All Categories
-                                </option>
-
-                                {categories
-                                    .filter(
-                                        (category) =>
-                                            category !==
-                                            "ALL"
-                                    )
-                                    .map((category) => (
-                                        <option
-                                            key={category}
-                                            value={category}
-                                        >
-                                            {category}
-                                        </option>
-                                    ))}
-
+                                <option value="ALL">All statuses</option>
+                                <option value="OPEN">Open</option>
+                                <option value="CLOSED">Fixed</option>
                             </select>
-
-                            <span className="citizen-section-count">
-                                {displayedComplaints.length}{" "}
-                                {displayedComplaints.length ===
-                                1
-                                    ? "report"
-                                    : "reports"}
-                            </span>
-
+                            <select
+                                className="cp-select"
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                            >
+                                <option value="ALL">All categories</option>
+                                {CATEGORIES.map((c) => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
                         </div>
-
                     </div>
 
-
-                    {/* =================================================
-                        TABS
-                    ================================================= */}
-
-                    <div className="citizen-tabs-row">
-
-                        <div className="citizen-complaint-tabs">
-
-                            <button
-                                className={`citizen-complaint-tab ${
-                                    complaintView ===
-                                    "MY"
-                                        ? "active"
-                                        : ""
-                                }`}
-                                onClick={() =>
-                                    handleComplaintViewChange(
-                                        "MY"
-                                    )
-                                }
-                            >
-                                My Complaints
-
-                                <span>
-                                    {
-                                        myComplaints.length
-                                    }
-                                </span>
-
-                            </button>
-
-
-                            <button
-                                className={`citizen-complaint-tab ${
-                                    complaintView ===
-                                    "RECENT"
-                                        ? "active"
-                                        : ""
-                                }`}
-                                onClick={() =>
-                                    handleComplaintViewChange(
-                                        "RECENT"
-                                    )
-                                }
-                            >
-                                Recent Complaints
-
-                                <span>
-                                    {
-                                        recentComplaints.length
-                                    }
-                                </span>
-
-                            </button>
-
-                        </div>
-
-                    </div>
-
-
-                    {/* =================================================
-                        TABLE HEADER
-                    ================================================= */}
-
-                    {!error &&
-                        displayedComplaints.length >
-                            0 && (
-
-                            <div className="citizen-table-header">
-
-                                <div>
-                                    COMPLAINT & LOCATION
-                                </div>
-
-                                <div>
-                                    STATUS
-                                </div>
-
-                                <div>
-                                    ASSIGNED CONTRACTOR
-                                </div>
-
-                                <div>
-                                    ACTIONS
-                                </div>
-
-                            </div>
-                        )}
-
-
-                    {/* =================================================
-                        ERROR
-                    ================================================= */}
-
-                    {error && (
-
-                        <div className="citizen-error">
-
-                            <h3>
-                                Unable to load complaints
-                            </h3>
-
-                            <p>
-                                {error}
-                            </p>
-
+                    {loading ? (
+                        <SkeletonList rows={3} />
+                    ) : visible.length === 0 ? (
+                        <EmptyState
+                            icon={view === "MINE" ? "camera" : "layers"}
+                            title={view === "MINE" ? "No reports yet" : "Nothing in the feed yet"}
+                        >
+                            {view === "MINE"
+                                ? "Spotted a pothole, broken light or overflowing drain? Report it with a photo and we'll track it for you."
+                                : "New reports from your city will show up here in real time."}
+                        </EmptyState>
+                    ) : (
+                        <div className="cp-card-grid">
+                            {visible.map((c) => (
+                                <CitizenCard
+                                    key={c.id}
+                                    complaint={c}
+                                    mine={view === "MINE"}
+                                    flash={flashIds.includes(c.id)}
+                                    onMedia={setMedia}
+                                    onOpen={() => navigate(`/report/${c.id}`, { state: { complaint: c } })}
+                                />
+                            ))}
                         </div>
                     )}
-
-
-                    {/* =================================================
-                        EMPTY
-                    ================================================= */}
-
-                    {!error &&
-                        displayedComplaints.length ===
-                            0 && (
-
-                            <div className="citizen-empty-state">
-
-                                <div className="citizen-empty-icon">
-                                    □
-                                </div>
-
-                                <h3>
-                                    {complaintView ===
-                                    "MY"
-                                        ? "No complaints yet"
-                                        : "No recent complaints"}
-                                </h3>
-
-                                <p>
-                                    {complaintView ===
-                                    "MY"
-                                        ? "Your reported complaints will appear here."
-                                        : "Recent complaints will appear here."}
-                                </p>
-
-                            </div>
-                        )}
-
-
-                    {/* =================================================
-                        COMPLAINT LIST
-                    ================================================= */}
-
-                    {!error &&
-                        displayedComplaints.length >
-                            0 && (
-
-                            <div className="citizen-complaint-list">
-
-                                {displayedComplaints.map(
-                                    (complaint) => {
-
-                                        const video =
-                                            isVideoMedia(
-                                                complaint
-                                            );
-
-                                        const contractorName =
-                                            complaint
-                                                .contractor
-                                                ?.name ||
-                                            complaint
-                                                .contractor
-                                                ?.userName ||
-                                            complaint
-                                                .contractor
-                                                ?.email ||
-                                            "Not assigned";
-
-                                        return (
-
-                                            <article
-                                                className="citizen-complaint-card"
-                                                key={
-                                                    complaint.id
-                                                }
-                                            >
-
-                                                {/* =================================================
-                                                    FIRST COLUMN
-                                                    IMAGE + COMPLAINT INFO
-                                                ================================================= */}
-
-                                                <div className="citizen-complaint-main">
-
-                                                    {/* MEDIA */}
-
-                                                    <div
-                                                        className={`citizen-complaint-image ${
-                                                            video
-                                                                ? "citizen-video-media"
-                                                                : "citizen-photo-media"
-                                                        }`}
-                                                        onClick={() =>
-                                                            openMediaPopup(
-                                                                complaint
-                                                            )
-                                                        }
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onKeyDown={(
-                                                            event
-                                                        ) => {
-
-                                                            if (
-                                                                event.key ===
-                                                                    "Enter" ||
-                                                                event.key ===
-                                                                    " "
-                                                            ) {
-                                                                openMediaPopup(
-                                                                    complaint
-                                                                );
-                                                            }
-
-                                                        }}
-                                                    >
-
-                                                        {complaint.mediaUrl ? (
-
-                                                            video ? (
-
-                                                                <>
-                                                                    <video
-                                                                        src={
-                                                                            complaint.mediaUrl
-                                                                        }
-                                                                        muted
-                                                                        preload="metadata"
-                                                                        className="citizen-complaint-video-thumbnail"
-                                                                    />
-
-                                                                    <div className="citizen-video-overlay">
-
-                                                                        <div className="citizen-video-play">
-                                                                            ▶
-                                                                        </div>
-
-                                                                    </div>
-
-                                                                    <div className="citizen-video-label">
-                                                                        VIDEO
-                                                                    </div>
-
-                                                                </>
-
-                                                            ) : (
-
-                                                                <img
-                                                                    src={
-                                                                        complaint.mediaUrl
-                                                                    }
-                                                                    alt={
-                                                                        complaint.category ||
-                                                                        "Complaint"
-                                                                    }
-                                                                />
-
-                                                            )
-
-                                                        ) : (
-
-                                                            <div className="citizen-no-media">
-                                                                No image
-                                                            </div>
-
-                                                        )}
-
-                                                    </div>
-
-
-                                                    {/* COMPLAINT INFORMATION */}
-
-                                                    <div className="citizen-complaint-info">
-
-                                                        <div className="citizen-complaint-id-row">
-
-                                                            <span className="citizen-complaint-id">
-                                                                CS-
-                                                                {String(
-                                                                    complaint.id
-                                                                ).padStart(
-                                                                    4,
-                                                                    "0"
-                                                                )}
-                                                            </span>
-
-                                                            <span className="citizen-category-badge">
-                                                                {complaint.category ||
-                                                                    "Civic Issue"}
-                                                            </span>
-
-                                                        </div>
-
-
-                                                        <h3>
-                                                            {complaint.description ||
-                                                                "No description available."}
-                                                        </h3>
-
-
-                                                        <p className="citizen-complaint-location">
-
-                                                            📍{" "}
-
-                                                            {complaint.address
-                                                                ? complaint.address
-                                                                : complaint.latitude !=
-                                                                        null &&
-                                                                    complaint.longitude !=
-                                                                        null
-                                                                  ? `${complaint.latitude}, ${complaint.longitude}`
-                                                                  : "Location not available"}
-
-                                                        </p>
-
-
-                                                        <div className="citizen-complaint-meta">
-
-                                                            <span>
-                                                                Reported:{" "}
-
-                                                                {complaint.capturedAt
-                                                                    ? new Date(
-                                                                          complaint.capturedAt
-                                                                      ).toLocaleString()
-                                                                    : "Date not available"}
-
-                                                            </span>
-
-                                                        </div>
-                                                        <ComplaintLike
-                                                            complaintId={complaint.id}
-                                                            initialLikeCount={complaint.likeCount}
-                                                            initialLiked={complaint.liked}
-                                                        />
-                                                    </div>
-
-                                                </div>
-
-
-                                                {/* =================================================
-                                                    STATUS
-                                                ================================================= */}
-
-                                                <div className="citizen-complaint-status">
-
-                                                    <span
-                                                        className={`citizen-status ${getStatusClass(
-                                                            complaint.status
-                                                        )}`}
-                                                    >
-                                                        {getStatusText(
-                                                            complaint.status
-                                                        )}
-                                                    </span>
-
-                                                </div>
-
-
-                                                {/* =================================================
-                                                    CONTRACTOR
-                                                ================================================= */}
-
-                                                <div className="citizen-contractor">
-
-                                                    {complaint.contractor ? (
-
-                                                        <>
-                                                            <strong>
-                                                                {
-                                                                    contractorName
-                                                                }
-                                                            </strong>
-
-                                                            <span>
-                                                                Assigned contractor
-                                                            </span>
-                                                        </>
-
-                                                    ) : (
-
-                                                        <>
-                                                            <strong className="not-assigned">
-                                                                Not assigned
-                                                            </strong>
-
-                                                            <span>
-                                                                Awaiting assignment
-                                                            </span>
-                                                        </>
-
-                                                    )}
-
-                                                </div>
-
-
-                                                {/* =================================================
-                                                    ACTION
-                                                ================================================= */}
-
-                                                <div className="citizen-complaint-action">
-
-                                                    <button
-                                                        className="citizen-view-details-btn"
-                                                        onClick={() =>
-                                                            handleViewDetails(
-                                                                complaint
-                                                            )
-                                                        }
-                                                    >
-                                                        View Details
-                                                    </button>
-
-                                                </div>
-
-                                            </article>
-                                        );
-                                    }
-                                )}
-
-                            </div>
-                        )}
-
                 </section>
-
             </main>
 
-
-            {/* =====================================================
-                MEDIA MODAL
-            ===================================================== */}
-
-            {selectedMedia && (
-
-                <div
-                    className="citizen-media-modal"
-                    onClick={closeMediaPopup}
-                >
-
-                    <div
-                        className="citizen-media-modal-content"
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
-                    >
-
-                        <button
-                            className="citizen-media-modal-close"
-                            onClick={closeMediaPopup}
-                            aria-label="Close"
-                        >
-                            ×
-                        </button>
-
-
-                        <div className="citizen-media-modal-header">
-
-                            <span>
-
-                                {selectedMedia.type ===
-                                "VIDEO"
-                                    ? "🎥 Video Evidence"
-                                    : "🖼️ Photo Evidence"}
-
-                            </span>
-
-                            <small>
-                                {
-                                    selectedMedia.category
-                                }
-                            </small>
-
-                        </div>
-
-
-                        <div className="citizen-media-modal-body">
-
-                            {selectedMedia.type ===
-                            "VIDEO" ? (
-
-                                <video
-                                    src={
-                                        selectedMedia.url
-                                    }
-                                    controls
-                                    autoPlay={false}
-                                    playsInline
-                                    preload="metadata"
-                                    className="citizen-modal-video"
-                                />
-
-                            ) : (
-
-                                <img
-                                    src={
-                                        selectedMedia.url
-                                    }
-                                    alt={
-                                        selectedMedia.category
-                                    }
-                                    className="citizen-modal-image"
-                                />
-
-                            )}
-
-                        </div>
-
-                    </div>
-
-                </div>
-            )}
-
+            <MediaModal complaint={media} onClose={() => setMedia(null)} />
+            <ToastStack toasts={toasts} onDismiss={dismiss} />
         </div>
+    );
+}
+
+function CitizenCard({ complaint: c, mine, flash, onMedia, onOpen }) {
+    const count = reportCount(c);
+
+    return (
+        <article className={`cp-card ${flash ? "cp-flash" : ""}`}>
+            <div className="cp-card-media">
+                <MediaThumb complaint={c} onOpen={onMedia} />
+                <div className="cp-card-media-tags">
+                    <SeverityBadge complaint={c} />
+                </div>
+            </div>
+
+            <div className="cp-card-body">
+                <div className="cp-card-meta">
+                    <span>{complaintCode(c)}</span>
+                    <span>·</span>
+                    <span>{timeAgo(c.createdAt) || c.capturedAt}</span>
+                </div>
+
+                <div className="cp-card-title">
+                    <h3>{c.category || "Issue"}</h3>
+                    <StatusBadge status={c.status} />
+                </div>
+
+                <div className="cp-card-loc">
+                    <Icon name="pin" size={14} />
+                    <span>{shortAddress(c)}</span>
+                </div>
+
+                {c.description && <p className="cp-card-desc">{c.description}</p>}
+
+                {count > 1 && (
+                    <div className="cp-co-report">
+                        <ReportCount complaint={c} compact />
+                        <span>
+                            {mine
+                                ? `You and ${count - 1} other${count - 1 === 1 ? "" : "s"} reported this`
+                                : `${count} citizens reported this`}
+                        </span>
+                    </div>
+                )}
+
+                <StatusTimeline status={c.status} />
+            </div>
+
+            <div className="cp-card-foot">
+                {!mine && !c.mergedIntoId ? (
+                    <ComplaintLike
+                        complaintId={c.id}
+                        initialLikeCount={c.likeCount}
+                        initialLiked={c.liked}
+                    />
+                ) : (
+                    <span className="cp-muted">
+                        {c.contractor?.name ? `Contractor: ${c.contractor.name}` : ""}
+                    </span>
+                )}
+                <button className="cp-btn cp-btn-sm cp-btn-ghost" onClick={onOpen}>
+                    Details <Icon name="chevron" size={14} />
+                </button>
+            </div>
+        </article>
     );
 }
 

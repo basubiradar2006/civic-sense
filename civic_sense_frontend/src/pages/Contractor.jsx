@@ -1,2567 +1,510 @@
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../supabaseClient";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../styles/Contractor.css";
-import ComplaintLike from "../components/ComplaintLike";
+import { supabase } from "../supabaseClient";
+import {
+    ActivityBell,
+    AppHeader,
+    EmptyState,
+    Icon,
+    MediaModal,
+    MediaThumb,
+    ReportCount,
+    SeverityBadge,
+    SkeletonList,
+    Spinner,
+    StatCard,
+    StatusBadge,
+    StatusTimeline,
+    ToastStack,
+} from "../components/ui";
+import { AuthError, api, clearSession, getStoredUser, upsertById } from "../lib/api";
+import {
+    complaintCode,
+    isOpen,
+    mapsUrl,
+    reportCount,
+    severityOf,
+    severityScore,
+    shortAddress,
+    slaInfo,
+    statusLabel,
+    timeAgo,
+} from "../lib/format";
+import { useRealtime } from "../lib/useRealtime";
+import { useToasts } from "../lib/useToasts";
+import "../styles/Dashboard.css";
+
+const TABS = {
+    QUEUE: { label: "Work queue", match: (c) => ["ASSIGNED", "IN_PROGRESS"].includes(c.status) },
+    SIGNOFF: { label: "Awaiting sign-off", match: (c) => c.status === "COMPLETED" },
+    DONE: { label: "Resolved", match: (c) => c.status === "RESOLVED" },
+};
+
+// In-progress first, then by severity, then by deadline
+const byUrgency = (a, b) =>
+    (b.status === "IN_PROGRESS") - (a.status === "IN_PROGRESS") ||
+    (severityScore(b) ?? 0) - (severityScore(a) ?? 0) ||
+    new Date(a.dueAt || 8.64e15) - new Date(b.dueAt || 8.64e15);
 
 function Contractor() {
     const navigate = useNavigate();
+    const user = useMemo(() => getStoredUser(), []);
+    const myId = user?.userId ?? user?.id;
 
-    const API_URL = import.meta.env.VITE_API_URL;
-
-    const user = JSON.parse(
-        localStorage.getItem("user") || "null"
-    );
-
-    // =====================================================
-    // STATE
-    // =====================================================
-
-    const [projects, setProjects] = useState([]);
-
+    const [jobs, setJobs] = useState([]);
+    const [area, setArea] = useState([]);
     const [loading, setLoading] = useState(true);
-
     const [error, setError] = useState("");
-
-    // PHOTO / VIDEO MODAL
-    const [selectedMedia, setSelectedMedia] =
-        useState(null);
-
-    // CURRENT ACTION
-    const [updatingId, setUpdatingId] =
-        useState(null);
-
-    // WORK PHOTOS
-    const [selectedWorkPhotos, setSelectedWorkPhotos] =
-        useState([]);
-
-    const [uploadingPhotos, setUploadingPhotos] =
-        useState(false);
-
-    // VIEW
-    const [activeView, setActiveView] =
-        useState("MY");
-
-    // CATEGORY
-    const [selectedCategory, setSelectedCategory] =
-        useState("ALL");
-
+    const [tab, setTab] = useState("QUEUE");
+    const [busy, setBusy] = useState("");
+    const [media, setMedia] = useState(null);
+    const [flashIds, setFlashIds] = useState([]);
+    const [activity, setActivity] = useState([]);
+    const { toasts, push, dismiss } = useToasts();
 
     // =====================================================
-    // FETCH COMPLAINTS
+    // LOAD
     // =====================================================
 
-    useEffect(() => {
-        const CACHE_KEY =
-            "contractorComplaints";
-
-        const cachedComplaints =
-            sessionStorage.getItem(CACHE_KEY);
-
-        // Show cached complaints immediately
-        if (cachedComplaints) {
-            try {
-                const parsedComplaints =
-                    JSON.parse(cachedComplaints);
-
-                if (Array.isArray(parsedComplaints)) {
-                    setProjects(parsedComplaints);
-                    setLoading(false);
-                }
-            } catch (cacheError) {
-                console.error(
-                    "Failed to read cached contractor complaints:",
-                    cacheError
-                );
-
-                sessionStorage.removeItem(
-                    CACHE_KEY
-                );
-            }
-        }
-
-
-        const fetchComplaints = async () => {
-            const token =
-                localStorage.getItem("token");
-
-            if (!token) {
+    const load = useCallback(async () => {
+        try {
+            const [assigned, all] = await Promise.all([
+                api("/api/complaints/assigned"),
+                api("/api/complaints"),
+            ]);
+            setJobs(Array.isArray(assigned) ? assigned : []);
+            setArea(Array.isArray(all) ? all.filter(isOpen) : []);
+            setError("");
+        } catch (err) {
+            if (err instanceof AuthError) {
                 navigate("/");
                 return;
             }
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [navigate]);
 
-            try {
-                if (!cachedComplaints) {
-                    setLoading(true);
+    useEffect(() => {
+        if (!user) {
+            navigate("/");
+            return;
+        }
+        // Initial data fetch; state is only set after the request resolves
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        load();
+    }, [load, navigate, user]);
+
+    // =====================================================
+    // REAL-TIME
+    // =====================================================
+
+    const flash = (id) => {
+        setFlashIds((ids) => [...ids, id]);
+        setTimeout(() => setFlashIds((ids) => ids.filter((x) => x !== id)), 2500);
+    };
+
+    const live = useRealtime((event) => {
+        const c = event.complaint;
+        if (!c || c.mergedIntoId) return;
+
+        const assignedToMe = c.contractor?.id === myId;
+        const known = jobs.some((j) => j.id === c.id);
+
+        if (assignedToMe) {
+            setJobs((list) => upsertById(list, c));
+            if (!known && c.status === "ASSIGNED") {
+                push(`New job assigned: ${complaintCode(c)} · ${c.category}`, "warn");
+                setActivity((items) => [
+                    { key: `${event.at}-${c.id}`, at: new Date().toISOString(), id: c.id, tone: "warn", text: `New job ${complaintCode(c)} — ${c.category}` },
+                    ...items,
+                ].slice(0, 30));
+                flash(c.id);
+            } else if (known && event.type === "UPDATED") {
+                const before = jobs.find((j) => j.id === c.id);
+                if (before?.status !== c.status) {
+                    push(`${complaintCode(c)} is now ${statusLabel(c.status)}`, "success");
+                    setActivity((items) => [
+                        { key: `${event.at}-${c.id}`, at: new Date().toISOString(), id: c.id, tone: "success", text: `${complaintCode(c)} — ${statusLabel(c.status)}` },
+                        ...items,
+                    ].slice(0, 30));
+                    flash(c.id);
                 }
-
-                setError("");
-
-                const response = await fetch(
-                    `${API_URL}/api/complaints`,
-                    {
-                        method: "GET",
-
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`,
-                        },
-                    }
-                );
-
-
-                if (
-                    response.status === 401 ||
-                    response.status === 403
-                ) {
-                    localStorage.removeItem(
-                        "token"
-                    );
-
-                    localStorage.removeItem(
-                        "user"
-                    );
-
-                    sessionStorage.removeItem(
-                        CACHE_KEY
-                    );
-
-                    navigate("/");
-                    return;
-                }
-
-
-                if (!response.ok) {
-                    throw new Error(
-                        "Failed to fetch complaints"
-                    );
-                }
-
-
-                const data =
-                    await response.json();
-
-                console.log(
-                    "Contractor Complaints:",
-                    data
-                );
-
-
-                const complaints =
-                    Array.isArray(data)
-                        ? data
-                        : [];
-
-
-                setProjects(
-                    complaints
-                );
-
-
-                sessionStorage.setItem(
-                    CACHE_KEY,
-                    JSON.stringify(
-                        complaints
-                    )
-                );
-
-            } catch (err) {
-                console.error(
-                    "Contractor complaint fetch error:",
-                    err
-                );
-
-                // Keep cached data if available
-                if (!cachedComplaints) {
-                    setError(
-                        "Unable to load complaints."
-                    );
-                }
-
-            } finally {
-                setLoading(false);
+            } else if (known && event.type === "MERGED") {
+                push(`${complaintCode(c)} now has ${reportCount(c)} citizen reports`, "info");
             }
-        };
+        } else if (known) {
+            // Reassigned to someone else
+            setJobs((list) => list.filter((j) => j.id !== c.id));
+            push(`${complaintCode(c)} was reassigned`, "info");
+        }
 
+        setArea((list) => (isOpen(c) ? upsertById(list, c) : list.filter((x) => x.id !== c.id)));
+    }, load);
 
-        fetchComplaints();
-
-    }, [API_URL, navigate]);
-
+    useEffect(() => {
+        if (live === "live") return undefined;
+        const timer = setInterval(load, 30000);
+        return () => clearInterval(timer);
+    }, [live, load]);
 
     // =====================================================
-    // LOGOUT
+    // ACTIONS
     // =====================================================
 
-    const handleLogout = () => {
-        localStorage.removeItem("token");
+    const transition = async (job, action, message) => {
+        setBusy(`${action}-${job.id}`);
+        try {
+            const updated = await api(`/api/complaints/${job.id}/${action}`, { method: "PUT" });
+            setJobs((list) => upsertById(list, updated));
+            push(message, "success");
+        } catch (err) {
+            if (err instanceof AuthError) {
+                navigate("/");
+                return;
+            }
+            push(err.message, "danger");
+        } finally {
+            setBusy("");
+        }
+    };
 
-        localStorage.removeItem("user");
-
-        localStorage.removeItem("username");
-
-        sessionStorage.removeItem(
-            "contractorComplaints"
-        );
-
+    const logout = () => {
+        clearSession();
         navigate("/");
     };
 
-
     // =====================================================
-    // CURRENT CONTRACTOR ID
-    // =====================================================
-
-    const currentContractorId =
-        user?.id ??
-        user?.userId ??
-        user?.contractorId ??
-        null;
-
-
-    // =====================================================
-    // CHECK ASSIGNED TO ME
+    // DERIVED
     // =====================================================
 
-    const isAssignedToMe = (project) => {
-        const contractor =
-            project?.contractor ||
-            project?.assignedContractor ||
-            project?.assignedTo ||
-            null;
-
-
-        if (!contractor) {
-            return false;
-        }
-
-
-        if (
-            typeof contractor === "object"
-        ) {
-            const contractorId =
-                contractor.id ??
-                contractor.userId ??
-                contractor.contractorId;
-
-
-            if (
-                contractorId != null &&
-                currentContractorId != null
-            ) {
-                return (
-                    Number(contractorId) ===
-                    Number(currentContractorId)
-                );
-            }
-
-
-            const contractorUsername =
-                contractor.userName ||
-                contractor.username ||
-                contractor.email;
-
-
-            const currentUsername =
-                user?.userName ||
-                user?.username ||
-                user?.email;
-
-
-            if (
-                contractorUsername &&
-                currentUsername
-            ) {
-                return (
-                    contractorUsername ===
-                    currentUsername
-                );
-            }
-        }
-
-
-        if (
-            typeof contractor === "number" ||
-            typeof contractor === "string"
-        ) {
-            return (
-                currentContractorId != null &&
-                Number(contractor) ===
-                    Number(currentContractorId)
-            );
-        }
-
-
-        return false;
-    };
-
-
-    // =====================================================
-    // CONTRACTOR NAME
-    // =====================================================
-
-    const getContractorName = (project) => {
-        const contractor =
-            project?.contractor ||
-            project?.assignedContractor ||
-            project?.assignedTo ||
-            null;
-
-
-        if (!contractor) {
-            return "Not assigned";
-        }
-
-
-        if (
-            typeof contractor === "object"
-        ) {
-            return (
-                contractor.name ||
-                contractor.userName ||
-                contractor.username ||
-                contractor.email ||
-                "Assigned contractor"
-            );
-        }
-
-
-        return "Assigned contractor";
-    };
-
-
-    // =====================================================
-    // CHECK VIDEO MEDIA
-    // =====================================================
-
-    const isVideoMedia = (project) => {
-        const mediaType = String(
-            project?.mediaType || ""
-        ).toUpperCase();
-
-
-        if (mediaType === "VIDEO") {
-            return true;
-        }
-
-
-        const url = String(
-            project?.mediaUrl || ""
-        ).toLowerCase();
-
-
-        return (
-            url.includes(".mp4") ||
-            url.includes(".webm") ||
-            url.includes(".mov") ||
-            url.includes(".m4v") ||
-            url.includes(".ogg")
-        );
-    };
-
-
-    // =====================================================
-    // OPEN MEDIA
-    // =====================================================
-
-    const openMedia = (project) => {
-        if (!project?.mediaUrl) {
-            return;
-        }
-
-
-        const video =
-            isVideoMedia(project);
-
-
-        setSelectedMedia({
-            url: project.mediaUrl,
-
-            type: video
-                ? "VIDEO"
-                : "PHOTO",
-
-            category:
-                project.category ||
-                "Complaint Evidence",
-        });
-    };
-
-
-    // =====================================================
-    // CLOSE MEDIA
-    // =====================================================
-
-    const closeMedia = () => {
-        setSelectedMedia(null);
-    };
-
-
-    // =====================================================
-    // START WORK
-    // =====================================================
-
-    const startWork = async (
-        projectId
-    ) => {
-        const token =
-            localStorage.getItem("token");
-
-
-        if (!token) {
-            navigate("/");
-            return;
-        }
-
-
-        try {
-            setUpdatingId(projectId);
-
-
-            const response =
-                await fetch(
-                    `${API_URL}/api/complaints/${projectId}/start`,
-                    {
-                        method: "PUT",
-
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`,
-                        },
-                    }
-                );
-
-
-            const responseText =
-                await response.text();
-
-
-            if (
-                response.status === 401 ||
-                response.status === 403
-            ) {
-                localStorage.removeItem(
-                    "token"
-                );
-
-                localStorage.removeItem(
-                    "user"
-                );
-
-                navigate("/");
-
-                return;
-            }
-
-
-            if (!response.ok) {
-                throw new Error(
-                    responseText ||
-                        "Unable to start work"
-                );
-            }
-
-
-            let updatedComplaint = null;
-
-
-            try {
-                updatedComplaint =
-                    JSON.parse(
-                        responseText
-                    );
-            } catch {
-                updatedComplaint = null;
-            }
-
-
-            setProjects(
-                (previousProjects) =>
-                    previousProjects.map(
-                        (project) =>
-                            project.id ===
-                            projectId
-                                ? {
-                                      ...project,
-
-                                      status:
-                                          updatedComplaint?.status ||
-                                          "IN_PROGRESS",
-
-                                      ...(updatedComplaint?.contractor
-                                          ? {
-                                                contractor:
-                                                    updatedComplaint.contractor,
-                                            }
-                                          : {}),
-                                  }
-                                : project
-                    )
-            );
-
-        } catch (error) {
-            console.error(
-                "Start work error:",
-                error
-            );
-
-            alert(
-                error.message ||
-                    "Unable to start work."
-            );
-
-        } finally {
-            setUpdatingId(null);
-        }
-    };
-
-
-    // =====================================================
-    // SELECT WORK PHOTOS
-    // =====================================================
-
-    const handleWorkPhotoSelect = (
-        event
-    ) => {
-        const files =
-            Array.from(
-                event.target.files || []
-            );
-
-
-        if (files.length === 0) {
-            return;
-        }
-
-
-        const imageFiles =
-            files.filter(
-                (file) =>
-                    file.type.startsWith(
-                        "image/"
-                    )
-            );
-
-
-        if (
-            imageFiles.length !==
-            files.length
-        ) {
-            alert(
-                "Only image files can be uploaded."
-            );
-        }
-
-
-        setSelectedWorkPhotos(
-            imageFiles
-        );
-
-
-        event.target.value = "";
-    };
-
-
-    // =====================================================
-    // REMOVE SELECTED PHOTO
-    // =====================================================
-
-    const removeSelectedPhoto = (
-        index
-    ) => {
-        setSelectedWorkPhotos(
-            (previousPhotos) =>
-                previousPhotos.filter(
-                    (_, photoIndex) =>
-                        photoIndex !== index
-                )
-        );
-    };
-
-
-    // =====================================================
-    // UPLOAD WORK PHOTOS
-    // =====================================================
-
-    const uploadWorkPhotos = async (
-        projectId
-    ) => {
-        if (
-            selectedWorkPhotos.length ===
-            0
-        ) {
-            alert(
-                "Please select work photos first."
-            );
-
-            return;
-        }
-
-
-        const token =
-            localStorage.getItem("token");
-
-
-        if (!token) {
-            navigate("/");
-            return;
-        }
-
-
-        try {
-            setUploadingPhotos(true);
-
-
-            const uploadedUrls = [];
-
-
-            // ---------------------------------------------
-            // UPLOAD TO SUPABASE
-            // ---------------------------------------------
-
-            for (
-                const photo of
-                    selectedWorkPhotos
-            ) {
-                const extension =
-                    photo.name
-                        ?.split(".")
-                        .pop() ||
-                    "jpg";
-
-
-                const fileName =
-                    `work-${projectId}-${Date.now()}-${Math.random()
-                        .toString(36)
-                        .substring(
-                            2,
-                            8
-                        )}.${extension}`;
-
-
-                const filePath =
-                    `work-photos/${projectId}/${fileName}`;
-
-
-                const {
-                    error: uploadError,
-                } =
-                    await supabase.storage
-                        .from("evidence")
-                        .upload(
-                            filePath,
-                            photo,
-                            {
-                                contentType:
-                                    photo.type ||
-                                    "image/jpeg",
-
-                                upsert: false,
-                            }
-                        );
-
-
-                if (uploadError) {
-                    console.error(
-                        "Supabase upload error:",
-                        uploadError
-                    );
-
-                    throw new Error(
-                        "Failed to upload work photo."
-                    );
-                }
-
-
-                const {
-                    data: urlData,
-                } =
-                    supabase.storage
-                        .from("evidence")
-                        .getPublicUrl(
-                            filePath
-                        );
-
-
-                if (
-                    !urlData?.publicUrl
-                ) {
-                    throw new Error(
-                        "Unable to get uploaded photo URL."
-                    );
-                }
-
-
-                uploadedUrls.push(
-                    urlData.publicUrl
-                );
-            }
-
-
-            // ---------------------------------------------
-            // SAVE URLS TO BACKEND
-            // ---------------------------------------------
-
-            const response =
-                await fetch(
-                    `${API_URL}/api/complaints/${projectId}/work-photos`,
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-
-                            Authorization:
-                                `Bearer ${token}`,
-                        },
-
-                        body: JSON.stringify({
-                            photoUrls:
-                                uploadedUrls,
-                        }),
-                    }
-                );
-
-
-            const responseText =
-                await response.text();
-
-
-            if (
-                response.status === 401 ||
-                response.status === 403
-            ) {
-                localStorage.removeItem(
-                    "token"
-                );
-
-                localStorage.removeItem(
-                    "user"
-                );
-
-                navigate("/");
-
-                return;
-            }
-
-
-            if (!response.ok) {
-                throw new Error(
-                    responseText ||
-                        "Failed to save work photos."
-                );
-            }
-
-
-            alert(
-                "Work photos uploaded successfully."
-            );
-
-
-            setSelectedWorkPhotos([]);
-
-        } catch (error) {
-            console.error(
-                "Work photo upload error:",
-                error
-            );
-
-            alert(
-                error.message ||
-                    "Unable to upload work photos."
-            );
-
-        } finally {
-            setUploadingPhotos(false);
-        }
-    };
-
-
-    // =====================================================
-    // COMPLETE WORK
-    // =====================================================
-
-    const completeWork = async (
-        projectId
-    ) => {
-        const token =
-            localStorage.getItem("token");
-
-
-        if (!token) {
-            navigate("/");
-            return;
-        }
-
-
-        try {
-            setUpdatingId(projectId);
-
-
-            const response =
-                await fetch(
-                    `${API_URL}/api/complaints/${projectId}/complete`,
-                    {
-                        method: "PUT",
-
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`,
-                        },
-                    }
-                );
-
-
-            const responseText =
-                await response.text();
-
-
-            if (
-                response.status === 401 ||
-                response.status === 403
-            ) {
-                localStorage.removeItem(
-                    "token"
-                );
-
-                localStorage.removeItem(
-                    "user"
-                );
-
-                navigate("/");
-
-                return;
-            }
-
-
-            if (!response.ok) {
-                throw new Error(
-                    responseText ||
-                        "Unable to complete work."
-                );
-            }
-
-
-            let updatedComplaint = null;
-
-
-            try {
-                updatedComplaint =
-                    JSON.parse(
-                        responseText
-                    );
-            } catch {
-                updatedComplaint = null;
-            }
-
-
-            setProjects(
-                (previousProjects) =>
-                    previousProjects.map(
-                        (project) =>
-                            project.id ===
-                            projectId
-                                ? {
-                                      ...project,
-
-                                      status:
-                                          updatedComplaint?.status ||
-                                          "COMPLETED",
-                                  }
-                                : project
-                    )
-            );
-
-        } catch (error) {
-            console.error(
-                "Complete work error:",
-                error
-            );
-
-            alert(
-                error.message ||
-                    "Unable to complete work."
-            );
-
-        } finally {
-            setUpdatingId(null);
-        }
-    };
-
-
-    // =====================================================
-    // CATEGORY OPTIONS
-    // =====================================================
-
-    const categoryOptions = [
-        {
-            value: "Road Damage",
-            label: "Road Damage",
-        },
-
-        {
-            value: "Garbage",
-            label: "Garbage / Waste",
-        },
-
-        {
-            value: "Street Light",
-            label: "Street Light",
-        },
-
-        {
-            value: "Water Leakage",
-            label: "Water Leakage",
-        },
-
-        {
-            value: "Drainage",
-            label: "Drainage Problem",
-        },
-
-        {
-            value: "Illegal Dumping",
-            label: "Illegal Dumping",
-        },
-
-        {
-            value:
-                "Public Property Damage",
-
-            label:
-                "Public Property Damage",
-        },
-
-        {
-            value: "Other",
-            label: "Other",
-        },
-    ];
-
-
-    // =====================================================
-    // MY PROJECTS
-    // =====================================================
-
-    const myProjects = useMemo(
-        () => {
-            return projects.filter(
-                (project) =>
-                    isAssignedToMe(
-                        project
-                    )
-            );
-        },
-        [
-            projects,
-            currentContractorId,
-            user,
-        ]
-    );
-
-
-    // =====================================================
-    // CURRENT VIEW
-    // =====================================================
-
-    const viewProjects =
-        activeView === "MY"
-            ? myProjects
-            : projects;
-
-
-    // =====================================================
-    // CATEGORY FILTER
-    // =====================================================
-
-    const filteredProjects =
-        selectedCategory === "ALL"
-            ? viewProjects
-            : viewProjects.filter(
-                  (project) =>
-                      project.category ===
-                      selectedCategory
-              );
-
-
-    // =====================================================
-    // STATISTICS
-    // =====================================================
-
-    const totalProjects =
-        myProjects.length;
-
-
-    const pendingProjects =
-        myProjects.filter(
-            (project) =>
-                project.status ===
-                    "PENDING" ||
-                project.status ===
-                    "ASSIGNED"
-        ).length;
-
-
-    const inProgressProjects =
-        myProjects.filter(
-            (project) =>
-                project.status ===
-                    "IN_PROGRESS" ||
-                project.status ===
-                    "IN PROGRESS"
-        ).length;
-
-
-    const completedProjects =
-        myProjects.filter(
-            (project) =>
-                project.status ===
-                    "RESOLVED" ||
-                project.status ===
-                    "COMPLETED"
-        ).length;
-
-
-    // =====================================================
-    // FORMAT COORDINATE
-    // =====================================================
-
-    const formatCoordinate = (
-        value
-    ) => {
-        if (
-            typeof value === "number" &&
-            Number.isFinite(value)
-        ) {
-            return value.toFixed(4);
-        }
-
-        return value || "N/A";
-    };
-
-
-    // =====================================================
-    // STATUS CLASS
-    // =====================================================
-
-    const getStatusClass = (
-        status
-    ) => {
-        if (!status) {
-            return "unknown";
-        }
-
-        return String(status)
-            .toLowerCase()
-            .replace(
-                /\s+/g,
-                "-"
-            );
-    };
-
-
-    // =====================================================
-    // STATUS TEXT
-    // =====================================================
-
-    const getStatusText = (
-        status
-    ) => {
-        if (!status) {
-            return "UNKNOWN";
-        }
-
-        return String(status).replace(
-            /_/g,
-            " "
-        );
-    };
-
-
-    // =====================================================
-    // IMAGE ERROR
-    // =====================================================
-
-    const handleImageError = (
-        event
-    ) => {
-        event.currentTarget.style.display =
-            "none";
-
-
-        const container =
-            event.currentTarget
-                .parentElement;
-
-
-        if (container) {
-            container.classList.add(
-                "image-error"
-            );
-        }
-    };
-
-
-    // =====================================================
-    // VIEW CHANGE
-    // =====================================================
-
-    const handleViewChange = (
-        view
-    ) => {
-        setActiveView(view);
-
-        setSelectedCategory("ALL");
-
-        setSelectedWorkPhotos([]);
-    };
-
-
-    // =====================================================
-    // ESCAPE TO CLOSE MEDIA
-    // =====================================================
-
-    useEffect(() => {
-        const handleEscape = (
-            event
-        ) => {
-            if (
-                event.key ===
-                "Escape"
-            ) {
-                closeMedia();
-            }
-        };
-
-
-        window.addEventListener(
-            "keydown",
-            handleEscape
-        );
-
-
-        return () => {
-            window.removeEventListener(
-                "keydown",
-                handleEscape
-            );
-        };
-    }, []);
-
-
-    // =====================================================
-    // SLA / CRITICALITY
-    // =====================================================
-
-    const getPriorityText = (
-        project
-    ) => {
-        const priority = String(
-            project?.priority ||
-                "MEDIUM"
-        ).toUpperCase();
-
-
-        if (
-            priority === "HIGH"
-        ) {
-            return "CRITICAL";
-        }
-
-
-        if (
-            priority === "LOW"
-        ) {
-            return "LOW";
-        }
-
-
-        return "MEDIUM";
-    };
-
-
-    const getPriorityClass = (
-        project
-    ) => {
-        return getPriorityText(
-            project
-        ).toLowerCase();
-    };
-
-
-    const getDueDate = (
-        project
-    ) => {
-        if (!project?.dueAt) {
-            return null;
-        }
-
-
-        const date =
-            new Date(
-                project.dueAt
-            );
-
-
-        return Number.isNaN(
-            date.getTime()
-        )
-            ? null
-            : date;
-    };
-
-
-    const getSlaInfo = (
-        project
-    ) => {
-        const dueDate =
-            getDueDate(
-                project
-            );
-
-
-        if (!dueDate) {
-            return {
-                label:
-                    "SLA not available",
-
-                className:
-                    "sla-unknown",
-
-                overdue: false,
-            };
-        }
-
-
-        const completed =
-            project.status ===
-                "COMPLETED" ||
-            project.status ===
-                "RESOLVED" ||
-            project.status ===
-                "SOLVED";
-
-
-        if (completed) {
-            return {
-                label:
-                    "SLA completed",
-
-                className:
-                    "sla-completed",
-
-                overdue: false,
-            };
-        }
-
-
-        const remainingMs =
-            dueDate.getTime() -
-            Date.now();
-
-
-        if (
-            remainingMs <= 0
-        ) {
-            return {
-                label:
-                    "SLA BREACHED",
-
-                className:
-                    "sla-overdue",
-
-                overdue: true,
-            };
-        }
-
-
-        const totalMinutes =
-            Math.floor(
-                remainingMs /
-                    60000
-            );
-
-
-        const days =
-            Math.floor(
-                totalMinutes /
-                    1440
-            );
-
-
-        const hours =
-            Math.floor(
-                (totalMinutes %
-                    1440) /
-                    60
-            );
-
-
-        const minutes =
-            totalMinutes %
-            60;
-
-
-        let label = "";
-
-
-        if (days > 0) {
-            label =
-                `${days}d ${hours}h remaining`;
-        } else if (hours > 0) {
-            label =
-                `${hours}h ${minutes}m remaining`;
-        } else {
-            label =
-                `${minutes}m remaining`;
-        }
-
-
-        const dueSoon =
-            remainingMs <=
-            24 *
-                60 *
-                60 *
-                1000;
-
-
+    const stats = useMemo(() => {
+        const open = jobs.filter((j) => ["ASSIGNED", "IN_PROGRESS"].includes(j.status));
         return {
-            label,
-
-            className:
-                dueSoon
-                    ? "sla-warning"
-                    : "sla-active",
-
-            overdue: false,
+            toStart: jobs.filter((j) => j.status === "ASSIGNED").length,
+            active: jobs.filter((j) => j.status === "IN_PROGRESS").length,
+            signoff: jobs.filter((j) => j.status === "COMPLETED").length,
+            done: jobs.filter((j) => j.status === "RESOLVED").length,
+            overdue: open.filter((j) => slaInfo(j).tone === "breached").length,
+            people: open.reduce((s, j) => s + reportCount(j), 0),
         };
-    };
+    }, [jobs]);
 
-
-    const formatDueDate = (
-        project
-    ) => {
-        const dueDate =
-            getDueDate(
-                project
-            );
-
-
-        if (!dueDate) {
-            return "Not set";
-        }
-
-
-        return dueDate.toLocaleString();
-    };
-
+    const visible = tab === "AREA"
+        ? [...area].sort((a, b) => (severityScore(b) ?? 0) - (severityScore(a) ?? 0))
+        : jobs.filter(TABS[tab].match).sort(byUrgency);
 
     // =====================================================
     // RENDER
     // =====================================================
 
     return (
-        <div className="contractor-page">
+        <div className="cp-app">
+            <AppHeader role="Contractor" user={user} live={live} onLogout={logout}>
+                <ActivityBell items={activity} onSelect={() => setTab("QUEUE")} />
+            </AppHeader>
 
-            {/* =================================================
-                HEADER
-            ================================================= */}
-
-            <header className="contractor-header">
-
-                <div className="contractor-brand">
-
-                    <div className="contractor-brand-logo">
-                        CP
-                    </div>
-
+            <main className="cp-main">
+                <section className="cp-hero">
                     <div>
-
-                        <div className="contractor-brand-name">
-                            CivicProof
-                        </div>
-
-                        <div className="contractor-brand-subtitle">
-                            MUNICIPAL OPERATIONS
-                        </div>
-
+                        <div className="cp-eyebrow">Field operations</div>
+                        <h1>My work orders</h1>
+                        <p>
+                            Jobs are ordered by urgency. Start work on site, upload
+                            photo proof, then mark the job complete for the officer to sign off.
+                        </p>
                     </div>
-
-                </div>
-
-
-                <div className="contractor-header-right">
-
-                    <div className="contractor-user">
-
-                        <span className="contractor-online-dot">
-                        </span>
-
-                        <span>
-                            {user?.name ||
-                                user?.userName ||
-                                "Contractor"}
-                        </span>
-
-                    </div>
-
-
-                    <span className="contractor-role-badge">
-                        CONTRACTOR
-                    </span>
-
-
-                    <button
-                        className="contractor-logout-btn"
-                        onClick={
-                            handleLogout
-                        }
-                    >
-                        Logout
-                    </button>
-
-                </div>
-
-            </header>
-
-
-            {/* =================================================
-                MAIN
-            ================================================= */}
-
-            <main className="contractor-main">
-
-                {/* =================================================
-                    INTRO
-                ================================================= */}
-
-                <section className="contractor-dashboard-intro">
-
-                    <div className="contractor-eyebrow">
-                        FIELD OPERATIONS
-                    </div>
-
-                    <h1>
-                        Contractor Dashboard
-                    </h1>
-
-                    <p>
-                        Review civic complaints,
-                        manage your assigned
-                        projects and track
-                        completed work.
-                    </p>
-
                 </section>
 
-
-                {/* =================================================
-                    STATISTICS
-                ================================================= */}
-
-                <section className="contractor-stats">
-
-                    <div className="contractor-stat-card total">
-
-                        <div className="contractor-stat-title">
-                            MY PROJECTS
-                        </div>
-
-                        <div className="contractor-stat-number">
-                            {totalProjects}
-                        </div>
-
-                        <div className="contractor-stat-description">
-                            Assigned to you
-                        </div>
-
+                {error && (
+                    <div className="cp-error">
+                        <Icon name="alert" /> {error}
+                        <button className="cp-btn cp-btn-sm cp-btn-ghost" onClick={load}>Retry</button>
                     </div>
+                )}
 
-
-                    <div className="contractor-stat-card assigned">
-
-                        <div className="contractor-stat-title">
-                            ASSIGNED
-                        </div>
-
-                        <div className="contractor-stat-number">
-                            {pendingProjects}
-                        </div>
-
-                        <div className="contractor-stat-description">
-                            Awaiting work
-                        </div>
-
-                    </div>
-
-
-                    <div className="contractor-stat-card progress">
-
-                        <div className="contractor-stat-title">
-                            IN PROGRESS
-                        </div>
-
-                        <div className="contractor-stat-number">
-                            {inProgressProjects}
-                        </div>
-
-                        <div className="contractor-stat-description">
-                            Currently working
-                        </div>
-
-                    </div>
-
-
-                    <div className="contractor-stat-card completed">
-
-                        <div className="contractor-stat-title">
-                            COMPLETED
-                        </div>
-
-                        <div className="contractor-stat-number">
-                            {completedProjects}
-                        </div>
-
-                        <div className="contractor-stat-description">
-                            Finished projects
-                        </div>
-
-                    </div>
-
+                <section className="cp-stats">
+                    <StatCard label="To start" value={stats.toStart} hint="Newly assigned" tone="info" icon="bolt" />
+                    <StatCard label="In progress" value={stats.active} hint="Work on site" tone="high" icon="wrench" />
+                    <StatCard label="Awaiting sign-off" value={stats.signoff} hint="Officer review" tone="primary" icon="eye" />
+                    <StatCard label="Resolved" value={stats.done} hint="Signed off" tone="low" icon="check" />
+                    <StatCard label="Overdue" value={stats.overdue} hint="Past SLA deadline" tone="critical" icon="clock" />
+                    <StatCard label="Citizens waiting" value={stats.people} hint="Reports on open jobs" tone="medium" icon="users" />
                 </section>
 
-
-                {/* =================================================
-                    PROJECT LEDGER
-                ================================================= */}
-
-                <section className="contractor-projects">
-
-                    {/* SECTION HEADER */}
-
-                    <div className="contractor-section-header">
-
-                        <div>
-
-                            <div className="contractor-section-eyebrow">
-                                COMPLAINT LEDGER
-                            </div>
-
-                            <h2>
-                                {activeView ===
-                                "MY"
-                                    ? "My Projects"
-                                    : "All Complaints"}
-                            </h2>
-
-                            <p>
-                                {activeView ===
-                                "MY"
-                                    ? "Complaints currently assigned to you."
-                                    : "Review all civic complaints available in the system."}
-                            </p>
-
-                        </div>
-
-
-                        <div className="contractor-section-controls">
-
-                            {/* TABS */}
-
-                            <div className="contractor-view-tabs">
-
+                <section className="cp-panel">
+                    <div className="cp-panel-head">
+                        <div className="cp-tabs">
+                            {Object.entries(TABS).map(([key, t]) => (
                                 <button
-                                    className={`contractor-view-tab ${
-                                        activeView ===
-                                        "MY"
-                                            ? "active"
-                                            : ""
-                                    }`}
-                                    onClick={() =>
-                                        handleViewChange(
-                                            "MY"
-                                        )
-                                    }
+                                    key={key}
+                                    className={`cp-tab ${tab === key ? "is-active" : ""}`}
+                                    onClick={() => setTab(key)}
                                 >
-                                    My Projects
+                                    {t.label} <b>{jobs.filter(t.match).length}</b>
                                 </button>
-
-
-                                <button
-                                    className={`contractor-view-tab ${
-                                        activeView ===
-                                        "ALL"
-                                            ? "active"
-                                            : ""
-                                    }`}
-                                    onClick={() =>
-                                        handleViewChange(
-                                            "ALL"
-                                        )
-                                    }
-                                >
-                                    All Complaints
-                                </button>
-
-                            </div>
-
-
-                            {/* CATEGORY */}
-
-                            <select
-                                className="contractor-category-filter"
-                                value={
-                                    selectedCategory
-                                }
-                                onChange={(
-                                    event
-                                ) =>
-                                    setSelectedCategory(
-                                        event
-                                            .target
-                                            .value
-                                    )
-                                }
+                            ))}
+                            <button
+                                className={`cp-tab ${tab === "AREA" ? "is-active" : ""}`}
+                                onClick={() => setTab("AREA")}
                             >
-
-                                <option value="ALL">
-                                    All Categories
-                                </option>
-
-
-                                {categoryOptions.map(
-                                    (
-                                        category
-                                    ) => (
-                                        <option
-                                            key={
-                                                category.value
-                                            }
-                                            value={
-                                                category.value
-                                            }
-                                        >
-                                            {
-                                                category.label
-                                            }
-                                        </option>
-                                    )
-                                )}
-
-                            </select>
-
-
-                            <span className="contractor-section-count">
-
-                                {
-                                    filteredProjects.length
-                                }{" "}
-
-                                {filteredProjects.length ===
-                                1
-                                    ? "report"
-                                    : "reports"}
-
-                            </span>
-
+                                City overview <b>{area.length}</b>
+                            </button>
                         </div>
-
                     </div>
 
-
-                    {/* =================================================
-                        TABLE HEADER
-
-                        IMPORTANT:
-                        5 columns matching each project card
-                    ================================================= */}
-
-                    {!loading &&
-                        !error &&
-                        filteredProjects.length >
-                            0 && (
-
-                            <div className="contractor-table-header">
-
-                                <div>
-                                    COMPLAINT & LOCATION
-                                </div>
-
-                                <div>
-                                    STATUS
-                                </div>
-
-                                <div>
-                                    SLA / CRITICALITY
-                                </div>
-
-                                <div>
-                                    ASSIGNED CONTRACTOR
-                                </div>
-
-                                <div>
-                                    ACTIONS
-                                </div>
-
-                            </div>
-
-                        )}
-
-
-                    {/* =================================================
-                        LOADING
-                    ================================================= */}
-
-                    {loading && (
-
-                        <div className="contractor-empty">
-
-                            <div className="contractor-loading-icon">
-                                ◌
-                            </div>
-
-                            <h3>
-                                Loading complaints...
-                            </h3>
-
+                    {loading ? (
+                        <SkeletonList rows={3} />
+                    ) : visible.length === 0 ? (
+                        <EmptyState icon={tab === "QUEUE" ? "wrench" : "layers"} title={tab === "QUEUE" ? "No active jobs" : "Nothing here"}>
+                            {tab === "QUEUE"
+                                ? "When an officer assigns you a job it appears here instantly, no refresh needed."
+                                : "Jobs move here as they progress."}
+                        </EmptyState>
+                    ) : tab === "AREA" ? (
+                        <div className="cp-card-grid">
+                            {visible.map((c) => (
+                                <AreaCard key={c.id} complaint={c} mine={c.contractor?.id === myId} onMedia={setMedia} />
+                            ))}
                         </div>
-
+                    ) : (
+                        <div className="cp-jobs">
+                            {visible.map((job) => (
+                                <JobCard
+                                    key={job.id}
+                                    job={job}
+                                    busy={busy}
+                                    flash={flashIds.includes(job.id)}
+                                    onMedia={setMedia}
+                                    onStart={() => transition(job, "start", `Work started on ${complaintCode(job)}`)}
+                                    onComplete={() => transition(job, "complete", `${complaintCode(job)} sent for sign-off`)}
+                                    onToast={push}
+                                />
+                            ))}
+                        </div>
                     )}
-
-
-                    {/* =================================================
-                        ERROR
-                    ================================================= */}
-
-                    {!loading &&
-                        error && (
-
-                            <div className="contractor-empty contractor-error">
-
-                                <div className="contractor-empty-icon">
-                                    !
-                                </div>
-
-                                <h3>
-                                    Unable to load complaints
-                                </h3>
-
-                                <p>
-                                    {error}
-                                </p>
-
-                            </div>
-
-                        )}
-
-
-                    {/* =================================================
-                        EMPTY
-                    ================================================= */}
-
-                    {!loading &&
-                        !error &&
-                        filteredProjects.length ===
-                            0 && (
-
-                            <div className="contractor-empty">
-
-                                <div className="contractor-empty-icon">
-                                    □
-                                </div>
-
-                                <h3>
-
-                                    {activeView ===
-                                    "MY"
-                                        ? selectedCategory ===
-                                          "ALL"
-                                            ? "No projects assigned"
-                                            : `No ${selectedCategory} projects assigned`
-                                        : selectedCategory ===
-                                          "ALL"
-                                        ? "No complaints found"
-                                        : `No ${selectedCategory} complaints found`}
-
-                                </h3>
-
-                                <p>
-
-                                    {activeView ===
-                                    "MY"
-                                        ? "Projects assigned to you will appear here."
-                                        : "There are no complaints matching this filter."}
-
-                                </p>
-
-                            </div>
-
-                        )}
-
-
-                    {/* =================================================
-                        COMPLAINT LIST
-                    ================================================= */}
-
-                    {!loading &&
-                        !error &&
-                        filteredProjects.length >
-                            0 && (
-
-                            <div className="contractor-project-list">
-
-                                {filteredProjects.map(
-                                    (
-                                        project
-                                    ) => {
-
-                                        const assignedToMe =
-                                            isAssignedToMe(
-                                                project
-                                            );
-
-
-                                        const hasContractor =
-                                            !!(
-                                                project?.contractor ||
-                                                project?.assignedContractor ||
-                                                project?.assignedTo
-                                            );
-
-
-                                        const video =
-                                            isVideoMedia(
-                                                project
-                                            );
-
-
-                                        const slaInfo =
-                                            getSlaInfo(
-                                                project
-                                            );
-
-
-                                        return (
-
-                                            <article
-                                                className="contractor-project-card"
-                                                key={
-                                                    project.id
-                                                }
-                                            >
-
-                                                {/* =================================================
-                                                    COMPLAINT & LOCATION
-                                                ================================================= */}
-
-                                                <div className="contractor-complaint-main">
-
-                                                    <div
-                                                        className={`contractor-project-image ${
-                                                            video
-                                                                ? "contractor-video-media"
-                                                                : ""
-                                                        }`}
-                                                        onClick={() =>
-                                                            openMedia(
-                                                                project
-                                                            )
-                                                        }
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onKeyDown={(
-                                                            event
-                                                        ) => {
-
-                                                            if (
-                                                                event.key ===
-                                                                    "Enter" ||
-                                                                event.key ===
-                                                                    " "
-                                                            ) {
-
-                                                                event.preventDefault();
-
-                                                                openMedia(
-                                                                    project
-                                                                );
-
-                                                            }
-
-                                                        }}
-                                                    >
-
-                                                        {project.mediaUrl ? (
-
-                                                            video ? (
-
-                                                                <>
-
-                                                                    <video
-                                                                        src={
-                                                                            project.mediaUrl
-                                                                        }
-                                                                        muted
-                                                                        playsInline
-                                                                        preload="metadata"
-                                                                        className="contractor-video-thumbnail"
-                                                                        onError={
-                                                                            handleImageError
-                                                                        }
-                                                                    />
-
-                                                                    <div className="contractor-video-overlay">
-
-                                                                        <div className="contractor-video-play">
-                                                                            ▶
-                                                                        </div>
-
-                                                                    </div>
-
-                                                                    <div className="contractor-video-label">
-                                                                        VIDEO
-                                                                    </div>
-
-                                                                </>
-
-                                                            ) : (
-
-                                                                <img
-                                                                    src={
-                                                                        project.mediaUrl
-                                                                    }
-                                                                    alt={
-                                                                        project.category ||
-                                                                        "Complaint"
-                                                                    }
-                                                                    onError={
-                                                                        handleImageError
-                                                                    }
-                                                                />
-
-                                                            )
-
-                                                        ) : (
-
-                                                            <div className="contractor-no-image">
-                                                                No image
-                                                            </div>
-
-                                                        )}
-
-                                                    </div>
-
-
-                                                    <div className="contractor-project-info">
-
-                                                        <div className="contractor-id-category">
-
-                                                            <span className="contractor-complaint-id">
-                                                                CS-
-                                                                {String(
-                                                                    project.id
-                                                                ).padStart(
-                                                                    4,
-                                                                    "0"
-                                                                )}
-                                                            </span>
-
-
-                                                            <span className="contractor-category-badge">
-                                                                {
-                                                                    project.category ||
-                                                                    "Civic Issue"
-                                                                }
-                                                            </span>
-
-                                                        </div>
-
-
-                                                        <h3>
-                                                            {
-                                                                project.description ||
-                                                                "No description provided."
-                                                            }
-                                                        </h3>
-
-
-                                                        <p className="contractor-location">
-
-                                                            📍{" "}
-
-                                                            {project.address ? (
-
-                                                                project.address
-
-                                                            ) : (
-
-                                                                <>
-
-                                                                    {formatCoordinate(
-                                                                        project.latitude
-                                                                    )}
-
-                                                                    {", "}
-
-                                                                    {formatCoordinate(
-                                                                        project.longitude
-                                                                    )}
-
-                                                                </>
-
-                                                            )}
-
-                                                        </p>
-
-
-                                                        <div className="contractor-meta">
-
-                                                            Reported:{" "}
-
-                                                            {project.capturedAt
-                                                                ? new Date(
-                                                                      project.capturedAt
-                                                                  ).toLocaleString()
-                                                                : "Unknown"}
-
-                                                        </div>
-
-
-                                                        {/* ESCALATION */}
-
-                                                        {project.escalated && (
-
-                                                            <div className="contractor-escalation-alert">
-
-                                                                ⚠ This complaint has exceeded its SLA and was escalated to a higher officer.
-
-                                                            </div>
-
-                                                        )}
-
-
-                                                        {/* LIKES */}
-
-                                                        <ComplaintLike
-                                                            complaintId={
-                                                                project.id
-                                                            }
-                                                            initialLikeCount={
-                                                                project.likeCount
-                                                            }
-                                                            initialLiked={
-                                                                project.liked
-                                                            }
-                                                        />
-
-                                                    </div>
-
-                                                </div>
-
-
-                                                {/* =================================================
-                                                    STATUS
-                                                ================================================= */}
-
-                                                <div className="contractor-status-column">
-
-                                                    <span
-                                                        className={`contractor-status ${getStatusClass(
-                                                            project.status
-                                                        )}`}
-                                                    >
-
-                                                        {
-                                                            getStatusText(
-                                                                project.status
-                                                            )
-                                                        }
-
-                                                    </span>
-
-                                                </div>
-
-
-                                                {/* =================================================
-                                                    SLA / CRITICALITY
-                                                ================================================= */}
-
-                                                <div className="contractor-sla-column">
-
-                                                    <span
-                                                        className={`contractor-priority-badge ${getPriorityClass(
-                                                            project
-                                                        )}`}
-                                                    >
-                                                        {
-                                                            getPriorityText(
-                                                                project
-                                                            )
-                                                        }
-                                                    </span>
-
-
-                                                    <span
-                                                        className={`contractor-sla-badge ${slaInfo.className}`}
-                                                    >
-
-                                                        {project.escalated
-                                                            ? "⚠ ESCALATED"
-                                                            : slaInfo.label}
-
-                                                    </span>
-
-
-                                                    <small className="contractor-due-date">
-
-                                                        Due:{" "}
-
-                                                        {
-                                                            formatDueDate(
-                                                                project
-                                                            )
-                                                        }
-
-                                                    </small>
-
-                                                </div>
-
-
-                                                {/* =================================================
-                                                    ASSIGNED CONTRACTOR
-                                                ================================================= */}
-
-                                                <div className="contractor-assigned-column">
-
-                                                    {assignedToMe ? (
-
-                                                        <>
-
-                                                            <strong>
-                                                                {
-                                                                    user?.name ||
-                                                                    user?.userName ||
-                                                                    "You"
-                                                                }
-                                                            </strong>
-
-                                                            <span>
-                                                                Assigned to you
-                                                            </span>
-
-                                                        </>
-
-                                                    ) : hasContractor ? (
-
-                                                        <>
-
-                                                            <strong>
-                                                                {
-                                                                    getContractorName(
-                                                                        project
-                                                                    )
-                                                                }
-                                                            </strong>
-
-                                                            <span>
-                                                                Assigned contractor
-                                                            </span>
-
-                                                        </>
-
-                                                    ) : (
-
-                                                        <>
-
-                                                            <strong className="not-assigned">
-                                                                Not assigned
-                                                            </strong>
-
-                                                            <span>
-                                                                Awaiting assignment
-                                                            </span>
-
-                                                        </>
-
-                                                    )}
-
-                                                </div>
-
-
-                                                {/* =================================================
-                                                    ACTIONS
-                                                ================================================= */}
-
-                                                <div className="contractor-project-actions">
-
-                                                    {/* VIEW DETAILS */}
-
-                                                    <button
-                                                        className="action-details"
-                                                        onClick={() =>
-                                                            navigate(
-                                                                `/report/${project.id}`
-                                                            )
-                                                        }
-                                                    >
-                                                        View Details
-                                                    </button>
-
-
-                                                    {/* =================================================
-                                                        MY PROJECT
-                                                    ================================================= */}
-
-                                                    {assignedToMe ? (
-
-                                                        <>
-
-                                                            {/* ASSIGNED / PENDING */}
-
-                                                            {(
-                                                                project.status ===
-                                                                    "ASSIGNED" ||
-                                                                project.status ===
-                                                                    "PENDING"
-                                                            ) && (
-
-                                                                <button
-                                                                    className="action-start"
-                                                                    disabled={
-                                                                        updatingId ===
-                                                                        project.id
-                                                                    }
-                                                                    onClick={() =>
-                                                                        startWork(
-                                                                            project.id
-                                                                        )
-                                                                    }
-                                                                >
-
-                                                                    {updatingId ===
-                                                                    project.id
-                                                                        ? "Starting..."
-                                                                        : "Start Work"}
-
-                                                                </button>
-
-                                                            )}
-
-
-                                                            {/* =================================================
-                                                                IN PROGRESS
-                                                            ================================================= */}
-
-                                                            {(
-                                                                project.status ===
-                                                                    "IN_PROGRESS" ||
-                                                                project.status ===
-                                                                    "IN PROGRESS"
-                                                            ) && (
-
-                                                                <div className="work-upload-box">
-
-                                                                    <div className="work-progress-label">
-                                                                        Work In Progress
-                                                                    </div>
-
-
-                                                                    {/* ADD PHOTOS */}
-
-                                                                    <label className="work-photo-select">
-
-                                                                        + Add Work Photos
-
-                                                                        <input
-                                                                            type="file"
-                                                                            accept="image/*"
-                                                                            multiple
-                                                                            hidden
-                                                                            onChange={
-                                                                                handleWorkPhotoSelect
-                                                                            }
-                                                                        />
-
-                                                                    </label>
-
-
-                                                                    {/* SELECTED PHOTOS */}
-
-                                                                    {selectedWorkPhotos.length >
-                                                                        0 && (
-
-                                                                        <div className="selected-work-photos">
-
-                                                                            {selectedWorkPhotos.map(
-                                                                                (
-                                                                                    photo,
-                                                                                    index
-                                                                                ) => (
-
-                                                                                    <div
-                                                                                        className="selected-work-photo"
-                                                                                        key={`${photo.name}-${index}`}
-                                                                                    >
-
-                                                                                        <img
-                                                                                            src={URL.createObjectURL(
-                                                                                                photo
-                                                                                            )}
-                                                                                            alt="Selected work"
-                                                                                        />
-
-
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() =>
-                                                                                                removeSelectedPhoto(
-                                                                                                    index
-                                                                                                )
-                                                                                            }
-                                                                                        >
-                                                                                            ×
-                                                                                        </button>
-
-                                                                                    </div>
-
-                                                                                )
-                                                                            )}
-
-                                                                        </div>
-
-                                                                    )}
-
-
-                                                                    {/* PHOTO COUNT */}
-
-                                                                    {selectedWorkPhotos.length >
-                                                                        0 && (
-
-                                                                        <div className="selected-photo-count">
-
-                                                                            {
-                                                                                selectedWorkPhotos.length
-                                                                            }{" "}
-
-                                                                            photo
-
-                                                                            {selectedWorkPhotos.length >
-                                                                            1
-                                                                                ? "s"
-                                                                                : ""}{" "}
-
-                                                                            selected
-
-                                                                        </div>
-
-                                                                    )}
-
-
-                                                                    {/* UPLOAD */}
-
-                                                                    <button
-                                                                        className="action-upload"
-                                                                        disabled={
-                                                                            uploadingPhotos ||
-                                                                            selectedWorkPhotos.length ===
-                                                                                0
-                                                                        }
-                                                                        onClick={() =>
-                                                                            uploadWorkPhotos(
-                                                                                project.id
-                                                                            )
-                                                                        }
-                                                                    >
-
-                                                                        {uploadingPhotos
-                                                                            ? "Uploading..."
-                                                                            : "Upload Work Photos"}
-
-                                                                    </button>
-
-
-                                                                    {/* COMPLETE */}
-
-                                                                    <button
-                                                                        className="action-complete"
-                                                                        disabled={
-                                                                            updatingId ===
-                                                                            project.id
-                                                                        }
-                                                                        onClick={() =>
-                                                                            completeWork(
-                                                                                project.id
-                                                                            )
-                                                                        }
-                                                                    >
-
-                                                                        {updatingId ===
-                                                                        project.id
-                                                                            ? "Completing..."
-                                                                            : "Mark Completed"}
-
-                                                                    </button>
-
-                                                                </div>
-
-                                                            )}
-
-
-                                                            {/* =================================================
-                                                                COMPLETED
-                                                            ================================================= */}
-
-                                                            {(
-                                                                project.status ===
-                                                                    "COMPLETED" ||
-                                                                project.status ===
-                                                                    "RESOLVED"
-                                                            ) && (
-
-                                                                <span className="completed-label">
-                                                                    ✓ Completed
-                                                                </span>
-
-                                                            )}
-
-                                                        </>
-
-                                                    ) : (
-
-                                                        hasContractor ? (
-
-                                                            <span className="assigned-other-label">
-                                                                Assigned to another contractor
-                                                            </span>
-
-                                                        ) : (
-
-                                                            <button
-                                                                className="action-request"
-                                                                onClick={() =>
-                                                                    alert(
-                                                                        "Please contact the officer to request this complaint."
-                                                                    )
-                                                                }
-                                                            >
-                                                                Request Assignment
-                                                            </button>
-
-                                                        )
-
-                                                    )}
-
-                                                </div>
-
-                                            </article>
-
-                                        );
-
-                                    }
-                                )}
-
-                            </div>
-
-                        )}
-
                 </section>
-
             </main>
 
+            <MediaModal complaint={media} onClose={() => setMedia(null)} />
+            <ToastStack toasts={toasts} onDismiss={dismiss} />
+        </div>
+    );
+}
 
-            {/* =====================================================
-                PHOTO / VIDEO MODAL
-            ===================================================== */}
+// =====================================================
+// JOB CARD
+// =====================================================
 
-            {selectedMedia && (
+function JobCard({ job, busy, flash, onMedia, onStart, onComplete, onToast }) {
+    const sla = slaInfo(job);
+    const map = mapsUrl(job);
+    const count = reportCount(job);
 
-                <div
-                    className="contractor-media-modal"
-                    onClick={
-                        closeMedia
-                    }
-                >
+    const [photos, setPhotos] = useState([]);
+    const [files, setFiles] = useState([]);
+    const [uploading, setUploading] = useState(false);
+    const inputRef = useRef(null);
 
-                    <div
-                        className="contractor-media-modal-content"
-                        onClick={(
-                            event
-                        ) =>
-                            event.stopPropagation()
-                        }
-                    >
+    const showProof = ["IN_PROGRESS", "COMPLETED", "RESOLVED"].includes(job.status);
 
-                        <button
-                            className="contractor-media-modal-close"
-                            onClick={
-                                closeMedia
-                            }
-                            aria-label="Close"
-                        >
-                            ×
-                        </button>
+    useEffect(() => {
+        if (!showProof) return undefined;
+        let cancelled = false;
+        api(`/api/complaints/${job.id}/work-photos`)
+            .then((data) => !cancelled && setPhotos(Array.isArray(data) ? data : []))
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [job.id, showProof]);
 
+    const upload = async () => {
+        if (files.length === 0) return;
+        setUploading(true);
+        try {
+            const urls = [];
+            for (const { file } of files) {
+                const ext = file.name?.split(".").pop() || "jpg";
+                const path = `work-photos/${job.id}/work-${job.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-                        <div className="contractor-media-modal-header">
+                const { error } = await supabase.storage
+                    .from("evidence")
+                    .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+                if (error) throw new Error("Photo upload failed. Please try again.");
 
-                            <span>
+                const { data } = supabase.storage.from("evidence").getPublicUrl(path);
+                if (!data?.publicUrl) throw new Error("Could not get the uploaded photo URL.");
+                urls.push(data.publicUrl);
+            }
 
-                                {selectedMedia.type ===
-                                "VIDEO"
-                                    ? "🎥 Video Evidence"
-                                    : "🖼️ Photo Evidence"}
+            const saved = await api(`/api/complaints/${job.id}/work-photos`, {
+                method: "POST",
+                body: { photoUrls: urls },
+            });
+            setPhotos(Array.isArray(saved) ? saved : photos);
+            files.forEach((f) => URL.revokeObjectURL(f.url));
+            setFiles([]);
+            onToast(`${urls.length} proof photo${urls.length === 1 ? "" : "s"} uploaded`, "success");
+        } catch (err) {
+            onToast(err.message, "danger");
+        } finally {
+            setUploading(false);
+        }
+    };
 
-                            </span>
+    return (
+        <article className={`cp-job ${flash ? "cp-flash" : ""} cp-job-${severityOf(job).toLowerCase()}`}>
+            <div className="cp-job-media">
+                <MediaThumb complaint={job} onOpen={onMedia} />
+            </div>
 
-
-                            <small>
-                                {
-                                    selectedMedia.category
-                                }
-                            </small>
-
-                        </div>
-
-
-                        <div className="contractor-media-modal-body">
-
-                            {selectedMedia.type ===
-                            "VIDEO" ? (
-
-                                <video
-                                    src={
-                                        selectedMedia.url
-                                    }
-                                    controls
-                                    playsInline
-                                    preload="metadata"
-                                    className="contractor-modal-video"
-                                />
-
-                            ) : (
-
-                                <img
-                                    src={
-                                        selectedMedia.url
-                                    }
-                                    alt={
-                                        selectedMedia.category
-                                    }
-                                    className="contractor-modal-image"
-                                />
-
-                            )}
-
-                        </div>
-
-                    </div>
-
+            <div className="cp-job-body">
+                <div className="cp-card-meta">
+                    <span>{complaintCode(job)}</span>
+                    <span>·</span>
+                    <span>reported {timeAgo(job.createdAt)}</span>
                 </div>
 
-            )}
+                <div className="cp-card-title">
+                    <h3>{job.category}</h3>
+                    <SeverityBadge complaint={job} />
+                    <StatusBadge status={job.status} />
+                </div>
 
-        </div>
+                <div className="cp-job-facts">
+                    <span><Icon name="pin" size={14} /> {shortAddress(job)}</span>
+                    <span className={`cp-chip cp-chip-${sla.tone}`}><Icon name="clock" size={11} /> {sla.label}</span>
+                    <span>
+                        <ReportCount complaint={job} compact /> {count === 1 ? "1 citizen affected" : `${count} citizens reported this`}
+                    </span>
+                </div>
+
+                {job.description && <p className="cp-card-desc">{job.description}</p>}
+
+                <StatusTimeline status={job.status} />
+
+                {showProof && (
+                    <div className="cp-proof">
+                        <div className="cp-section-title">
+                            <span>Proof of work</span>
+                            <span className="cp-muted">{photos.length} photo{photos.length === 1 ? "" : "s"}</span>
+                        </div>
+                        <div className="cp-proof-strip">
+                            {photos.map((p) => (
+                                <button key={p.id} className="cp-proof-photo" onClick={() => onMedia({ ...job, mediaUrl: p.photoUrl, mediaType: "IMAGE" })}>
+                                    <img src={p.photoUrl} alt="Work proof" loading="lazy" />
+                                </button>
+                            ))}
+                            {files.map((f, i) => (
+                                <span key={f.url} className="cp-proof-photo cp-proof-pending">
+                                    <img src={f.url} alt={f.file.name} />
+                                    <button
+                                        onClick={() => {
+                                            URL.revokeObjectURL(f.url);
+                                            setFiles(files.filter((_, x) => x !== i));
+                                        }}
+                                        aria-label="Remove"
+                                    >
+                                        <Icon name="x" size={12} />
+                                    </button>
+                                </span>
+                            ))}
+                            {job.status === "IN_PROGRESS" && (
+                                <button className="cp-proof-add" onClick={() => inputRef.current?.click()}>
+                                    <Icon name="camera" size={18} />
+                                    Add
+                                </button>
+                            )}
+                        </div>
+                        <input
+                            ref={inputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            multiple
+                            hidden
+                            onChange={(e) => {
+                                const picked = Array.from(e.target.files || [])
+                                    .filter((f) => f.type.startsWith("image/"))
+                                    .map((file) => ({ file, url: URL.createObjectURL(file) }));
+                                setFiles((prev) => [...prev, ...picked]);
+                                e.target.value = "";
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="cp-job-actions">
+                {map && (
+                    <a className="cp-btn cp-btn-ghost" href={map} target="_blank" rel="noreferrer">
+                        <Icon name="pin" size={16} /> Navigate
+                    </a>
+                )}
+
+                {job.status === "ASSIGNED" && (
+                    <button className="cp-btn cp-btn-dark" onClick={onStart} disabled={!!busy}>
+                        {busy === `start-${job.id}` ? <Spinner /> : <Icon name="play" size={15} />} Start work
+                    </button>
+                )}
+
+                {job.status === "IN_PROGRESS" && (
+                    <>
+                        {files.length > 0 && (
+                            <button className="cp-btn cp-btn-ghost" onClick={upload} disabled={uploading}>
+                                {uploading ? <Spinner /> : <Icon name="upload" size={16} />} Upload {files.length}
+                            </button>
+                        )}
+                        <button
+                            className="cp-btn cp-btn-primary"
+                            onClick={onComplete}
+                            disabled={!!busy || uploading || photos.length === 0}
+                            title={photos.length === 0 ? "Upload at least one proof photo first" : ""}
+                        >
+                            {busy === `complete-${job.id}` ? <Spinner /> : <Icon name="check" size={16} />} Mark complete
+                        </button>
+                    </>
+                )}
+
+                {job.status === "COMPLETED" && (
+                    <span className="cp-muted cp-wait">
+                        <Icon name="eye" size={14} /> Waiting for officer sign-off
+                    </span>
+                )}
+            </div>
+        </article>
+    );
+}
+
+function AreaCard({ complaint: c, mine, onMedia }) {
+    return (
+        <article className="cp-card cp-card-compact">
+            <div className="cp-card-media">
+                <MediaThumb complaint={c} onOpen={onMedia} />
+                <div className="cp-card-media-tags">
+                    <SeverityBadge complaint={c} />
+                </div>
+            </div>
+            <div className="cp-card-body">
+                <div className="cp-card-meta">
+                    <span>{complaintCode(c)}</span>
+                    {mine && <span className="cp-chip cp-chip-ok">Your job</span>}
+                </div>
+                <div className="cp-card-title">
+                    <h3>{c.category}</h3>
+                    <StatusBadge status={c.status} />
+                </div>
+                <div className="cp-card-loc">
+                    <Icon name="pin" size={14} />
+                    <span>{shortAddress(c)}</span>
+                </div>
+                <div className="cp-co-report">
+                    <ReportCount complaint={c} />
+                </div>
+            </div>
+        </article>
     );
 }
 

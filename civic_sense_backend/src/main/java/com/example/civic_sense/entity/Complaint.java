@@ -79,6 +79,50 @@ public class Complaint {
     private String capturedAt;
 
     // =====================================================
+    // DUPLICATE MERGING
+    // A complaint with mergedIntoId != null is a "child"
+    // report that was merged into a master complaint
+    // (same category, same GPS spot). Officers only see
+    // master complaints; reportCount tracks how many
+    // citizens reported the same issue.
+    // =====================================================
+
+    private Long mergedIntoId;
+
+    private Integer reportCount = 1;
+
+    private LocalDateTime lastReportedAt;
+
+    // =====================================================
+    // SEVERITY ANALYSIS (0 - 100)
+    // =====================================================
+
+    private Double severityScore;
+
+    // LOW / MEDIUM / HIGH / CRITICAL
+    private String severityLevel;
+
+    // Individual factors (0.0 - 1.0) for explainability
+    private Double categoryFactor;
+
+    private Double trafficFactor;
+
+    private Double usageFactor;
+
+    private Double communityFactor;
+
+    private Double slaFactor;
+
+    // e.g. primary / residential / unknown
+    private String roadType;
+
+    // e.g. "Near: school, hospital; 4 other issues within 500 m"
+    @Column(length = 1000)
+    private String locationContext;
+
+    private LocalDateTime severityUpdatedAt;
+
+    // =====================================================
     // CITIZEN WHO CREATED THE COMPLAINT
     // =====================================================
 
@@ -103,6 +147,10 @@ public class Complaint {
 
     @Transient
     private boolean liked;
+
+    // NEW / MERGED / ALREADY_REPORTED - only set in the create response
+    @Transient
+    private String submissionResult;
 
     // =====================================================
     // CONSTRUCTOR
@@ -314,6 +362,58 @@ public class Complaint {
     public void setContractor(User contractor) {
         this.contractor = contractor;
     }
+
+    // =====================================================
+    // DUPLICATE MERGING
+    // =====================================================
+
+    public Long getMergedIntoId() { return mergedIntoId; }
+    public void setMergedIntoId(Long mergedIntoId) { this.mergedIntoId = mergedIntoId; }
+
+    public Integer getReportCount() { return reportCount == null ? 1 : reportCount; }
+    public void setReportCount(Integer reportCount) { this.reportCount = reportCount; }
+
+    public LocalDateTime getLastReportedAt() { return lastReportedAt; }
+    public void setLastReportedAt(LocalDateTime lastReportedAt) { this.lastReportedAt = lastReportedAt; }
+
+    public boolean isMerged() { return mergedIntoId != null; }
+
+    public String getSubmissionResult() { return submissionResult; }
+    public void setSubmissionResult(String submissionResult) { this.submissionResult = submissionResult; }
+
+    // =====================================================
+    // SEVERITY
+    // =====================================================
+
+    public Double getSeverityScore() { return severityScore; }
+    public void setSeverityScore(Double severityScore) { this.severityScore = severityScore; }
+
+    public String getSeverityLevel() { return severityLevel; }
+    public void setSeverityLevel(String severityLevel) { this.severityLevel = severityLevel; }
+
+    public Double getCategoryFactor() { return categoryFactor; }
+    public void setCategoryFactor(Double categoryFactor) { this.categoryFactor = categoryFactor; }
+
+    public Double getTrafficFactor() { return trafficFactor; }
+    public void setTrafficFactor(Double trafficFactor) { this.trafficFactor = trafficFactor; }
+
+    public Double getUsageFactor() { return usageFactor; }
+    public void setUsageFactor(Double usageFactor) { this.usageFactor = usageFactor; }
+
+    public Double getCommunityFactor() { return communityFactor; }
+    public void setCommunityFactor(Double communityFactor) { this.communityFactor = communityFactor; }
+
+    public Double getSlaFactor() { return slaFactor; }
+    public void setSlaFactor(Double slaFactor) { this.slaFactor = slaFactor; }
+
+    public String getRoadType() { return roadType; }
+    public void setRoadType(String roadType) { this.roadType = roadType; }
+
+    public String getLocationContext() { return locationContext; }
+    public void setLocationContext(String locationContext) { this.locationContext = locationContext; }
+
+    public LocalDateTime getSeverityUpdatedAt() { return severityUpdatedAt; }
+    public void setSeverityUpdatedAt(LocalDateTime severityUpdatedAt) { this.severityUpdatedAt = severityUpdatedAt; }
 
     // =====================================================
     // LIKE COUNT

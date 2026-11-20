@@ -41,6 +41,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-civic_sense}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-civic}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-civic_sense}
+      # Timestamps are stored as local time - keep the JVM in the city's zone
+      TZ: ${TZ:-Asia/Dhaka}
+      # Set to false if the server has no internet access (OpenStreetMap lookups)
+      CIVIC_SEVERITY_OSM_ENABLED: ${CIVIC_SEVERITY_OSM_ENABLED:-true}
     ports:
       - "${APP_PORT:-8085}:8085"
 

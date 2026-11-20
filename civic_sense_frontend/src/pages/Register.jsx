@@ -10,6 +10,7 @@ function Register() {
 
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
     const [role, setRole] = useState("CITIZEN");
 
@@ -37,6 +38,7 @@ function Register() {
                     body: JSON.stringify({
                         name: name,
                         email: email,
+                        phone: phone.trim() || null,
                         password: password,
                         role: role
                     })
@@ -194,6 +196,43 @@ function Register() {
                                     setEmail(e.target.value)
                                 }
                                 required
+                            />
+
+                        </div>
+
+                    </div>
+
+
+                    {/* PHONE (optional - lets you sign in with your number) */}
+                    <div className="register-input-group">
+
+                        <label htmlFor="phone">
+                            Phone Number <span style={{ fontWeight: 400, opacity: 0.7 }}>(optional)</span>
+                        </label>
+
+                        <div className="register-input-wrapper">
+
+                            <span className="register-input-icon">
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                >
+                                    <rect x="7" y="3" width="10" height="18" rx="2" />
+                                    <path d="M11 18h2" />
+                                </svg>
+                            </span>
+
+                            <input
+                                id="phone"
+                                type="tel"
+                                placeholder="+8801XXXXXXXXX"
+                                value={phone}
+                                onChange={(e) =>
+                                    setPhone(e.target.value)
+                                }
+                                autoComplete="tel"
                             />
 
                         </div>

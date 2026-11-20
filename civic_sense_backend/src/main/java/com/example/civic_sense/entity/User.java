@@ -1,5 +1,6 @@
 package com.example.civic_sense.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -15,6 +16,12 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
+    // Optional - lets users sign in with phone number too
+    @Column(unique = true)
+    private String phone;
+
+    // Never send the password hash to the browser
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
@@ -39,6 +46,14 @@ public class User {
 
     public String getPassword() {
         return password;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public Role getRole() {
