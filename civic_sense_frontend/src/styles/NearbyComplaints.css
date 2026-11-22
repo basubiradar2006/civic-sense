@@ -1,750 +1,443 @@
-/* =========================================================
-   PAGE
-========================================================= */
+/* =====================================================
+   NearbyComplaints — matches CivicPulse design system
+   All cp-* tokens come from theme.css
+===================================================== */
 
-.nearby-page {
+/* ---------- page shell ---------- */
+
+.nb-page {
     min-height: 100vh;
-    background: #f5f7fb;
-    color: #1f2937;
-}
-
-
-/* =========================================================
-   HEADER
-========================================================= */
-
-.nearby-header {
-    height: 70px;
-    background: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
-
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    padding: 0 40px;
-
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.nearby-logo {
-    font-size: 24px;
-    font-weight: 800;
-    color: #2563eb;
-    cursor: pointer;
-}
-
-.nearby-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.back-btn,
-.nearby-logout-btn {
-    border: none;
-    border-radius: 8px;
-
-    padding: 10px 16px;
-
+    background: var(--cp-bg);
+    color: var(--cp-ink);
+    font-family: var(--cp-font);
     font-size: 14px;
-    font-weight: 600;
-
-    cursor: pointer;
-
-    transition: 0.2s ease;
 }
 
-.back-btn {
-    background: #eff6ff;
-    color: #2563eb;
+.nb-page *,
+.nb-page *::before,
+.nb-page *::after {
+    box-sizing: border-box;
 }
 
-.back-btn:hover {
-    background: #dbeafe;
-}
+/* ---------- main ---------- */
 
-.nearby-logout-btn {
-    background: #fee2e2;
-    color: #dc2626;
-}
-
-.nearby-logout-btn:hover {
-    background: #fecaca;
-}
-
-
-/* =========================================================
-   MAIN
-========================================================= */
-
-.nearby-main {
-    max-width: 1200px;
+.nb-main {
+    max-width: 1240px;
     margin: 0 auto;
-
-    padding: 35px 25px 60px;
+    padding: 28px 24px 64px;
 }
 
+/* ---------- hero ---------- */
 
-/* =========================================================
-   TITLE
-========================================================= */
-
-.nearby-title-section {
+.nb-hero {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-
-    gap: 30px;
-
-    margin-bottom: 25px;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
 }
 
-.nearby-title-section h1 {
-    margin: 0 0 8px;
-
-    font-size: 32px;
+.nb-hero h1 {
+    font-size: 26px;
     font-weight: 800;
-
-    color: #111827;
+    letter-spacing: -0.03em;
+    margin: 4px 0 0;
+    color: var(--cp-ink);
 }
 
-.nearby-title-section p {
-    margin: 0;
-
-    color: #6b7280;
-    font-size: 16px;
+.nb-hero p {
+    margin: 6px 0 0;
+    color: var(--cp-ink-2);
+    font-size: 14px;
 }
 
+/* ---------- radius selector ---------- */
 
-/* =========================================================
-   RADIUS
-========================================================= */
-
-.radius-control {
+.nb-radius {
     display: flex;
     flex-direction: column;
-
-    gap: 7px;
+    gap: 5px;
 }
 
-.radius-control label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #6b7280;
+.nb-radius label {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--cp-muted);
 }
 
-.radius-control select {
-    min-width: 130px;
-
-    padding: 10px 12px;
-
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-
-    background: #ffffff;
-
-    font-size: 14px;
-
+.nb-radius select {
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1.5px solid var(--cp-line);
+    background: var(--cp-surface);
+    font: inherit;
+    font-size: 13.5px;
+    color: var(--cp-ink);
     cursor: pointer;
-}
-
-.radius-control select:focus {
     outline: none;
-    border-color: #2563eb;
+    min-width: 130px;
 }
 
+.nb-radius select:focus {
+    border-color: var(--cp-primary);
+    box-shadow: 0 0 0 3px var(--cp-primary-soft);
+}
 
-/* =========================================================
-   TOOLBAR
-========================================================= */
+/* ---------- toolbar ---------- */
 
-.nearby-toolbar {
+.nb-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-
-    background: #ffffff;
-
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-
-    padding: 14px 18px;
-
-    margin-bottom: 25px;
+    gap: 12px;
+    background: var(--cp-surface);
+    border: 1px solid var(--cp-line);
+    border-radius: var(--cp-radius);
+    padding: 12px 18px;
+    margin-bottom: 22px;
+    box-shadow: var(--cp-shadow);
+    font-size: 13.5px;
+    color: var(--cp-ink-2);
 }
 
-.nearby-toolbar span {
-    color: #6b7280;
-    font-size: 14px;
+.nb-toolbar strong {
+    color: var(--cp-ink);
 }
 
-.nearby-toolbar strong {
-    color: #111827;
-}
+/* ---------- state panels (loading / error / empty) ---------- */
 
-.refresh-btn,
-.retry-btn {
-    border: none;
-    border-radius: 8px;
-
-    background: #2563eb;
-    color: #ffffff;
-
-    padding: 10px 16px;
-
-    font-size: 14px;
-    font-weight: 600;
-
-    cursor: pointer;
-
-    transition: 0.2s ease;
-}
-
-.refresh-btn:hover,
-.retry-btn:hover {
-    background: #1d4ed8;
-}
-
-.refresh-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-
-/* =========================================================
-   MESSAGE
-========================================================= */
-
-.nearby-message {
-    background: #ffffff;
-
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-
-    min-height: 280px;
-
+.nb-state {
+    background: var(--cp-surface);
+    border: 1px solid var(--cp-line);
+    border-radius: var(--cp-radius);
+    box-shadow: var(--cp-shadow);
+    min-height: 300px;
     display: flex;
     flex-direction: column;
-
     align-items: center;
     justify-content: center;
-
     text-align: center;
-
-    padding: 40px;
+    padding: 48px 32px;
+    gap: 10px;
 }
 
-.nearby-message h3 {
-    margin: 12px 0 7px;
-
-    font-size: 20px;
-    color: #111827;
-}
-
-.nearby-message p {
-    margin: 0 0 20px;
-
-    color: #6b7280;
-    max-width: 500px;
-}
-
-.nearby-message.error {
-    border-color: #fecaca;
-}
-
-.message-icon {
-    font-size: 42px;
-}
-
-
-/* =========================================================
-   LOADER
-========================================================= */
-
-.loader {
-    width: 38px;
-    height: 38px;
-
-    border: 4px solid #e5e7eb;
-    border-top-color: #2563eb;
-
-    border-radius: 50%;
-
-    animation: nearby-spin 0.8s linear infinite;
-}
-
-@keyframes nearby-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-
-/* =========================================================
-   GRID
-========================================================= */
-
-.nearby-grid {
+.nb-state-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
     display: grid;
-
-    grid-template-columns:
-        repeat(2, minmax(0, 1fr));
-
-    gap: 22px;
+    place-items: center;
+    background: var(--cp-primary-soft);
+    color: var(--cp-primary);
+    margin-bottom: 4px;
 }
 
+.nb-state.nb-error .nb-state-icon {
+    background: var(--cp-critical-soft);
+    color: var(--cp-critical);
+}
 
-/* =========================================================
-   CARD
-========================================================= */
+.nb-state h3 {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--cp-ink);
+    margin: 0;
+}
 
-.nearby-card {
-    background: #ffffff;
+.nb-state p {
+    margin: 0;
+    color: var(--cp-muted);
+    max-width: 420px;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
 
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
+/* loading spinner */
+.nb-spinner {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid var(--cp-line);
+    border-top-color: var(--cp-primary);
+    animation: nb-spin 0.75s linear infinite;
+    margin-bottom: 4px;
+}
 
+@keyframes nb-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ---------- grid ---------- */
+
+.nb-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 18px;
+}
+
+/* ---------- card ---------- */
+
+.nb-card {
+    background: var(--cp-surface);
+    border: 1px solid var(--cp-line);
+    border-radius: var(--cp-radius);
+    box-shadow: var(--cp-shadow);
     overflow: hidden;
-
-    box-shadow:
-        0 2px 5px rgba(0, 0, 0, 0.04);
-
-    transition:
-        transform 0.2s ease,
-        box-shadow 0.2s ease;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 
-.nearby-card:hover {
+.nb-card:hover {
     transform: translateY(-3px);
-
-    box-shadow:
-        0 8px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 12px 32px -12px rgba(15, 29, 26, 0.18);
+    border-color: #c6d0cb;
 }
 
-
-/* =========================================================
-   IMAGE
-========================================================= */
-
-.nearby-image-container {
-    height: 230px;
-
-    background: #f3f4f6;
-
+/* image area */
+.nb-card-img {
+    height: 220px;
+    background: linear-gradient(135deg, #e7ece9, #f5f7f5);
     position: relative;
-
     overflow: hidden;
 }
 
-.nearby-image {
+.nb-card-img img {
     width: 100%;
     height: 100%;
-
     object-fit: cover;
-
-    cursor: pointer;
-
-    transition: transform 0.3s ease;
+    display: block;
+    cursor: zoom-in;
+    transition: transform 0.3s;
 }
 
-.nearby-image:hover {
+.nb-card-img img:hover {
     transform: scale(1.04);
 }
 
-.no-image {
+.nb-card-no-img {
     width: 100%;
     height: 100%;
-
     display: flex;
     flex-direction: column;
-
     align-items: center;
     justify-content: center;
-
-    color: #9ca3af;
+    gap: 6px;
+    color: var(--cp-muted);
+    font-size: 12.5px;
 }
 
-.no-image span {
-    font-size: 38px;
+.nb-card-no-img svg {
+    opacity: 0.4;
 }
 
-.no-image p {
-    margin: 8px 0 0;
-}
-
-
-/* =========================================================
-   DISTANCE BADGE
-========================================================= */
-
-.distance-badge {
+/* distance badge */
+.nb-dist {
     position: absolute;
-
-    bottom: 12px;
-    left: 12px;
-
-    background: rgba(17, 24, 39, 0.85);
-    color: #ffffff;
-
-    padding: 7px 11px;
-
-    border-radius: 20px;
-
+    bottom: 10px;
+    left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(15, 29, 26, 0.82);
+    color: #fff;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
+    backdrop-filter: blur(4px);
 }
 
-
-/* =========================================================
-   CONTENT
-========================================================= */
-
-.nearby-card-content {
-    padding: 20px;
+/* card body */
+.nb-card-body {
+    padding: 18px 20px 16px;
 }
 
-.nearby-category-row {
+.nb-card-row {
     display: flex;
     flex-wrap: wrap;
-
-    align-items: flex-start;
-    justify-content: space-between;
-
-    gap: 12px;
-
+    align-items: center;
+    gap: 8px;
     margin-bottom: 10px;
 }
 
-.nearby-category-row h2 {
+.nb-card-row h2 {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--cp-ink);
     margin: 0;
-
-    font-size: 19px;
-    font-weight: 700;
-
-    color: #111827;
-}
-
-
-/* =========================================================
-   STATUS
-========================================================= */
-
-.nearby-status {
-    padding: 5px 9px;
-
-    border-radius: 20px;
-
-    font-size: 11px;
-    font-weight: 700;
-
-    white-space: nowrap;
-
-    background: #f3f4f6;
-    color: #4b5563;
-}
-
-.nearby-status.pending {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.nearby-status.in-progress {
-    background: #dbeafe;
-    color: #1d4ed8;
-}
-
-.nearby-status.resolved {
-    background: #dcfce7;
-    color: #166534;
-}
-
-
-/* =========================================================
-   DESCRIPTION
-========================================================= */
-
-.nearby-description {
-    color: #4b5563;
-
-    font-size: 14px;
-    line-height: 1.6;
-
-    margin: 0 0 12px;
-}
-
-
-/* =========================================================
-   ADDRESS
-========================================================= */
-
-.nearby-address {
-    color: #374151;
-
-    font-size: 13px;
-    line-height: 1.5;
-
-    margin: 0 0 8px;
-}
-
-
-/* =========================================================
-   DATE
-========================================================= */
-
-.nearby-date {
-    color: #9ca3af;
-
-    font-size: 12px;
-
-    margin: 0 0 18px;
-}
-
-
-/* =========================================================
-   ACTIONS
-========================================================= */
-
-.nearby-actions {
-    display: flex;
-
-    align-items: center;
-
-    gap: 10px;
-
-    padding-top: 15px;
-
-    border-top: 1px solid #f0f0f0;
-}
-
-
-/* =========================================================
-   LIKE BUTTON
-========================================================= */
-
-.like-btn {
     flex: 1;
+    min-width: 0;
+}
 
-    border: 1px solid #e5e7eb;
+.nb-desc {
+    color: var(--cp-ink-2);
+    font-size: 13.5px;
+    line-height: 1.55;
+    margin: 0 0 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
 
-    background: #ffffff;
-    color: #374151;
-
-    border-radius: 8px;
-
-    padding: 10px 12px;
-
-    font-size: 14px;
-    font-weight: 600;
-
-    cursor: pointer;
-
+.nb-addr {
     display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--cp-muted);
+    margin: 0 0 4px;
+    line-height: 1.4;
+}
+
+.nb-date {
+    font-size: 12px;
+    color: var(--cp-muted);
+    margin: 0 0 14px;
+}
+
+/* actions */
+.nb-card-actions {
+    display: flex;
+    gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--cp-line-2);
+}
+
+/* like button */
+.nb-like {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-
-    gap: 7px;
-
-    transition: 0.2s ease;
+    gap: 6px;
+    flex: 1;
+    height: 36px;
+    border-radius: 9px;
+    border: 1.5px solid var(--cp-line);
+    background: var(--cp-surface);
+    color: var(--cp-ink-2);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.like-btn:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
+.nb-like:hover {
+    background: var(--cp-surface-2);
+    border-color: #c6d0cb;
 }
 
-.like-btn.liked {
-    background: #fff1f2;
+.nb-like.nb-liked {
+    background: #fff0f1;
     color: #e11d48;
     border-color: #fecdd3;
 }
 
-.like-btn span {
-    font-weight: 700;
-}
-
-
-/* =========================================================
-   DETAILS BUTTON
-========================================================= */
-
-.details-btn {
-    flex: 1;
-
-    border: none;
-
-    background: #2563eb;
-    color: #ffffff;
-
-    border-radius: 8px;
-
-    padding: 10px 12px;
-
-    font-size: 14px;
-    font-weight: 600;
-
-    cursor: pointer;
-
-    transition: 0.2s ease;
-}
-
-.details-btn:hover {
-    background: #1d4ed8;
-}
-
-
-/* =========================================================
-   IMAGE MODAL
-========================================================= */
-
-.nearby-image-modal {
-    position: fixed;
-
-    inset: 0;
-
-    background: rgba(0, 0, 0, 0.8);
-
-    display: flex;
-
+/* view details button */
+.nb-details {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
+    flex: 1;
+    height: 36px;
+    border-radius: 9px;
+    border: 0;
+    background: var(--cp-primary);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    box-shadow: 0 4px 12px -6px rgba(15, 118, 110, 0.7);
+}
 
-    padding: 30px;
+.nb-details:hover {
+    background: var(--cp-primary-strong);
+}
 
+/* ---------- image modal ---------- */
+
+.nb-modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.82);
+    display: grid;
+    place-items: center;
+    padding: 32px;
     z-index: 1000;
+    backdrop-filter: blur(4px);
 }
 
-.nearby-modal-content {
+.nb-modal-box {
     position: relative;
-
-    max-width: 1000px;
-    max-height: 90vh;
+    max-width: min(1000px, 100%);
 }
 
-.nearby-modal-image {
+.nb-modal-box img {
     max-width: 100%;
     max-height: 85vh;
-
     display: block;
-
-    border-radius: 10px;
-
+    border-radius: 14px;
     object-fit: contain;
 }
 
-.nearby-modal-close {
+.nb-modal-close {
     position: absolute;
-
-    right: -15px;
-    top: -15px;
-
+    top: -14px;
+    right: -14px;
     width: 36px;
     height: 36px;
-
-    border: none;
-
     border-radius: 50%;
-
-    background: #ffffff;
-    color: #111827;
-
-    font-size: 25px;
+    border: 0;
+    background: #fff;
+    color: var(--cp-ink);
+    font-size: 20px;
     line-height: 1;
-
     cursor: pointer;
-
+    display: grid;
+    place-items: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
     z-index: 2;
 }
 
-
-/* =========================================================
-   RESPONSIVE
-========================================================= */
+/* ---------- responsive ---------- */
 
 @media (max-width: 800px) {
-
-    .nearby-header {
-        padding: 0 20px;
-    }
-
-    .nearby-main {
-        padding: 25px 15px 40px;
-    }
-
-    .nearby-title-section {
-        align-items: stretch;
+    .nb-hero {
         flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
     }
 
-    .nearby-title-section h1 {
-        font-size: 27px;
-    }
-
-    .radius-control {
+    .nb-radius select {
         width: 100%;
     }
 
-    .radius-control select {
-        width: 100%;
-    }
-
-    .nearby-grid {
+    .nb-grid {
         grid-template-columns: 1fr;
     }
 
-    .nearby-toolbar {
-        align-items: stretch;
+    .nb-toolbar {
         flex-direction: column;
-
-        gap: 12px;
-    }
-
-    .refresh-btn {
-        width: 100%;
+        align-items: stretch;
+        gap: 10px;
     }
 }
 
-
-@media (max-width: 500px) {
-
-    .nearby-header {
-        height: auto;
-
-        padding: 15px;
-
-        gap: 12px;
+@media (max-width: 520px) {
+    .nb-main {
+        padding: 18px 14px 48px;
     }
 
-    .nearby-logo {
-        font-size: 20px;
-    }
-
-    .nearby-header-actions {
-        gap: 6px;
-    }
-
-    .back-btn,
-    .nearby-logout-btn {
-        padding: 8px 10px;
-        font-size: 12px;
-    }
-
-    .nearby-card-content {
-        padding: 15px;
-    }
-
-    .nearby-image-container {
-        height: 200px;
-    }
-
-    .nearby-actions {
+    .nb-card-actions {
         flex-direction: column;
-    }
-
-    .like-btn,
-    .details-btn {
-        width: 100%;
     }
 }

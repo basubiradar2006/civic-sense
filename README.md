@@ -1,5 +1,43 @@
 # CivicPulse — Civic Complaint & Accountability Platform
 
+---
+
+## 🔑 Login Credentials
+
+> These accounts are **automatically seeded** when the backend starts. Use them to sign in straight away.
+
+### Officer (pre-provisioned)
+
+| Field    | Value                      |
+|----------|----------------------------|
+| Email    | `officer@civicpulse.in`    |
+| Password | `Officer@123`              |
+| Role     | `OFFICER`                  |
+| Dashboard | `/officer`                |
+
+### Contractor (pre-provisioned)
+
+| Field    | Value                         |
+|----------|-------------------------------|
+| Email    | `contractor@civicpulse.in`    |
+| Password | `Contractor@123`              |
+| Role     | `CONTRACTOR`                  |
+| Dashboard | `/contractor`                |
+
+### Citizen (self-register)
+
+Citizens **register themselves** at `/register`.  
+Example test citizen (register on the app):
+
+| Field    | Value                      |
+|----------|----------------------------|
+| Email    | _(any valid email)_        |
+| Password | _(choose at registration)_ |
+| Role     | `CITIZEN`                  |
+| Dashboard | `/citizen`                |
+
+---
+
 > **Spot it. Snap it. Get it fixed.**
 > Citizens report civic issues with photo + GPS evidence, officers triage them by a data-driven
 > severity score, contractors fix them with photo proof — and everyone sees progress live.

@@ -1,277 +1,155 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "../styles/theme.css";
 import "../styles/Complaint.css";
 import { supabase } from "../supabaseClient";
 import { CATEGORIES, assessmentStatus, severityOf } from "../lib/format";
 import HazardEvidenceFields from "../components/HazardEvidenceFields";
+import { AppHeader, Icon } from "../components/ui";
+import { clearSession, getToken } from "../lib/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 function Complaint() {
     const navigate = useNavigate();
 
-    const videoRef = useRef(null);
-    const canvasRef = useRef(null);
-    const streamRef = useRef(null);
+    const user = (() => {
+        try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+    })();
+
+    const videoRef         = useRef(null);
+    const canvasRef        = useRef(null);
+    const streamRef        = useRef(null);
     const mediaRecorderRef = useRef(null);
-    const videoChunksRef = useRef([]);
+    const videoChunksRef   = useRef([]);
 
-    const [category, setCategory] = useState("");
+    const [category, setCategory]           = useState("");
     const [hazardEvidence, setHazardEvidence] = useState({});
-    const [description, setDescription] = useState("");
+    const [description, setDescription]     = useState("");
 
-    const [showCamera, setShowCamera] = useState(false);
-    const [cameraMode, setCameraMode] = useState(null);
+    const [showCamera, setShowCamera]       = useState(false);
+    const [cameraMode, setCameraMode]       = useState(null);
 
-    const [photo, setPhoto] = useState(null);
+    const [photo, setPhoto]                 = useState(null);
     const [recordedVideo, setRecordedVideo] = useState(null);
-    const [isRecording, setIsRecording] = useState(false);
+    const [isRecording, setIsRecording]     = useState(false);
 
-    const [location, setLocation] = useState(null);
+    const [location, setLocation]           = useState(null);
     const [locationLoading, setLocationLoading] = useState(false);
 
-    // =====================================================
-    // STOP CAMERA WHEN LEAVING PAGE
-    // =====================================================
-
-    useEffect(() => {
-        return () => {
-            stopCamera();
-        };
-    }, []);
+    const [submitting, setSubmitting]       = useState(false);
 
     // =====================================================
-    // OPEN PHOTO CAMERA
+    // CLEANUP ON UNMOUNT
+    // =====================================================
+
+    useEffect(() => { return () => { stopCamera(); }; }, []);
+
+    // =====================================================
+    // CAMERA — PHOTO
     // =====================================================
 
     const openCamera = async () => {
         try {
-            // Stop any existing camera
             stopCamera();
-
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { ideal: "environment" }
-                },
-                audio: false
+                video: { facingMode: { ideal: "environment" } },
+                audio: false,
             });
-
             streamRef.current = stream;
-
             setCameraMode("PHOTO");
             setShowCamera(true);
-
             setTimeout(() => {
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
-
-                    videoRef.current
-                        .play()
-                        .catch((error) =>
-                            console.error("Video play error:", error)
-                        );
+                    videoRef.current.play().catch(console.error);
                 }
             }, 100);
-
-        } catch (error) {
-            console.error("Camera error:", error);
-
-            alert(
-                "Camera access denied or camera is not available. Please allow camera permission."
-            );
+        } catch {
+            alert("Camera access denied or camera is not available. Please allow camera permission.");
         }
     };
 
     // =====================================================
-    // START VIDEO RECORDING
+    // CAMERA — VIDEO RECORDING
     // =====================================================
 
     const startVideoRecording = async () => {
         try {
             stopCamera();
-
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { ideal: "environment" }
-                },
-                audio: true
+                video: { facingMode: { ideal: "environment" } },
+                audio: true,
             });
-
             streamRef.current = stream;
-
             setCameraMode("VIDEO");
             setShowCamera(true);
             setIsRecording(true);
-
             setTimeout(() => {
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
-
-                    videoRef.current
-                        .play()
-                        .catch((error) =>
-                            console.error("Video play error:", error)
-                        );
+                    videoRef.current.play().catch(console.error);
                 }
             }, 100);
 
             videoChunksRef.current = [];
+            let opts = {};
+            if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9"))
+                opts.mimeType = "video/webm;codecs=vp9";
+            else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8"))
+                opts.mimeType = "video/webm;codecs=vp8";
+            else if (MediaRecorder.isTypeSupported("video/webm"))
+                opts.mimeType = "video/webm";
 
-            let recorderOptions = {};
-
-            // Use a supported video format
-            if (
-                MediaRecorder.isTypeSupported(
-                    "video/webm;codecs=vp9"
-                )
-            ) {
-                recorderOptions.mimeType =
-                    "video/webm;codecs=vp9";
-            } else if (
-                MediaRecorder.isTypeSupported(
-                    "video/webm;codecs=vp8"
-                )
-            ) {
-                recorderOptions.mimeType =
-                    "video/webm;codecs=vp8";
-            } else if (
-                MediaRecorder.isTypeSupported("video/webm")
-            ) {
-                recorderOptions.mimeType = "video/webm";
-            }
-
-            const recorder = new MediaRecorder(
-                stream,
-                recorderOptions
-            );
-
+            const recorder = new MediaRecorder(stream, opts);
             mediaRecorderRef.current = recorder;
 
-            recorder.ondataavailable = (event) => {
-                if (event.data && event.data.size > 0) {
-                    videoChunksRef.current.push(event.data);
-                }
+            recorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) videoChunksRef.current.push(e.data);
             };
 
             recorder.onstop = () => {
-                const mimeType =
-                    recorder.mimeType || "video/webm";
-
-                const blob = new Blob(
-                    videoChunksRef.current,
-                    {
-                        type: mimeType
-                    }
-                );
-
+                const mimeType = recorder.mimeType || "video/webm";
+                const blob = new Blob(videoChunksRef.current, { type: mimeType });
                 if (blob.size === 0) {
                     alert("Video recording failed. Please try again.");
-
-                    stream.getTracks().forEach((track) =>
-                        track.stop()
-                    );
-
+                    stream.getTracks().forEach(t => t.stop());
                     streamRef.current = null;
                     setIsRecording(false);
                     setShowCamera(false);
-
                     return;
                 }
-
-                const extension = mimeType.includes("mp4")
-                    ? "mp4"
-                    : "webm";
-
-                const file = new File(
-                    [blob],
-                    `evidence-${Date.now()}.${extension}`,
-                    {
-                        type: mimeType
-                    }
-                );
-
-                const videoUrl = URL.createObjectURL(blob);
-
-                setRecordedVideo({
-                    file: file,
-                    url: videoUrl,
-                    capturedAt: new Date().toISOString()
-                });
-
-                stream.getTracks().forEach((track) =>
-                    track.stop()
-                );
-
+                const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+                const file = new File([blob], `evidence-${Date.now()}.${ext}`, { type: mimeType });
+                const url  = URL.createObjectURL(blob);
+                setRecordedVideo({ file, url, capturedAt: new Date().toISOString() });
+                stream.getTracks().forEach(t => t.stop());
                 streamRef.current = null;
-
                 setShowCamera(false);
                 setIsRecording(false);
-
-                // Get location after recording
                 getLocation();
             };
 
-            recorder.onerror = (event) => {
-                console.error(
-                    "MediaRecorder error:",
-                    event
-                );
-
-                alert("Video recording failed.");
-
-                stopCamera();
-                setIsRecording(false);
-                setShowCamera(false);
-            };
-
+            recorder.onerror = () => { alert("Video recording failed."); stopCamera(); setIsRecording(false); setShowCamera(false); };
             recorder.start(1000);
-
-        } catch (error) {
-            console.error(
-                "Video recording error:",
-                error
-            );
-
+        } catch {
             setIsRecording(false);
             setShowCamera(false);
-
-            alert(
-                "Unable to access camera and microphone. Please allow permissions."
-            );
+            alert("Unable to access camera and microphone. Please allow permissions.");
         }
     };
-
-    // =====================================================
-    // STOP VIDEO RECORDING
-    // =====================================================
 
     const stopVideoRecording = () => {
-        if (
-            mediaRecorderRef.current &&
-            mediaRecorderRef.current.state !== "inactive"
-        ) {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive")
             mediaRecorderRef.current.stop();
-        }
     };
-
-    // =====================================================
-    // STOP CAMERA
-    // =====================================================
 
     const stopCamera = () => {
         if (streamRef.current) {
-            streamRef.current
-                .getTracks()
-                .forEach((track) => {
-                    track.stop();
-                });
-
+            streamRef.current.getTracks().forEach(t => t.stop());
             streamRef.current = null;
         }
-
-        if (videoRef.current) {
-            videoRef.current.srcObject = null;
-        }
+        if (videoRef.current) videoRef.current.srcObject = null;
     };
 
     // =====================================================
@@ -279,1070 +157,405 @@ function Complaint() {
     // =====================================================
 
     const capturePhoto = () => {
-        const video = videoRef.current;
+        const video  = videoRef.current;
         const canvas = canvasRef.current;
-
-        if (!video || !canvas) {
-            return;
-        }
-
-        if (
-            !video.videoWidth ||
-            !video.videoHeight
-        ) {
+        if (!video || !canvas) return;
+        if (!video.videoWidth || !video.videoHeight) {
             alert("Camera is not ready yet. Please wait.");
             return;
         }
-
-        canvas.width = video.videoWidth;
+        canvas.width  = video.videoWidth;
         canvas.height = video.videoHeight;
-
-        const context = canvas.getContext("2d");
-
-        context.drawImage(
-            video,
-            0,
-            0,
-            canvas.width,
-            canvas.height
-        );
-
-        const capturedAt =
-            new Date().toISOString();
-
-        canvas.toBlob(
-            (blob) => {
-                if (!blob) {
-                    alert("Failed to capture photo.");
-                    return;
-                }
-
-                const file = new File(
-                    [blob],
-                    `evidence-${Date.now()}.jpg`,
-                    {
-                        type: "image/jpeg"
-                    }
-                );
-
-                const photoUrl =
-                    URL.createObjectURL(blob);
-
-                setPhoto({
-                    file: file,
-                    url: photoUrl,
-                    capturedAt: capturedAt
-                });
-
-                stopCamera();
-
-                setShowCamera(false);
-                setCameraMode(null);
-
-                // Get GPS after photo capture
-                getLocation();
-            },
-            "image/jpeg",
-            0.9
-        );
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+        const capturedAt = new Date().toISOString();
+        canvas.toBlob((blob) => {
+            if (!blob) { alert("Failed to capture photo."); return; }
+            const file = new File([blob], `evidence-${Date.now()}.jpg`, { type: "image/jpeg" });
+            const url  = URL.createObjectURL(blob);
+            setPhoto({ file, url, capturedAt });
+            stopCamera();
+            setShowCamera(false);
+            setCameraMode(null);
+            getLocation();
+        }, "image/jpeg", 0.9);
     };
 
-    // =====================================================
-    // CANCEL CAMERA
-    // =====================================================
-
     const cancelCamera = () => {
-        if (isRecording) {
-            if (
-                mediaRecorderRef.current &&
-                mediaRecorderRef.current.state !== "inactive"
-            ) {
-                mediaRecorderRef.current.stop();
-            }
-        }
-
+        if (isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive")
+            mediaRecorderRef.current.stop();
         stopCamera();
-
         setShowCamera(false);
         setCameraMode(null);
         setIsRecording(false);
-
         videoChunksRef.current = [];
         mediaRecorderRef.current = null;
     };
 
-    // =====================================================
-    // RETAKE PHOTO
-    // =====================================================
-
-    const retakePhoto = () => {
-        if (photo?.url) {
-            URL.revokeObjectURL(photo.url);
-        }
-
-        setPhoto(null);
-        openCamera();
-    };
+    const retakePhoto = () => { if (photo?.url) URL.revokeObjectURL(photo.url); setPhoto(null); openCamera(); };
+    const retakeVideo = () => { if (recordedVideo?.url) URL.revokeObjectURL(recordedVideo.url); setRecordedVideo(null); startVideoRecording(); };
 
     // =====================================================
-    // RETAKE VIDEO
-    // =====================================================
-
-    const retakeVideo = () => {
-        if (recordedVideo?.url) {
-            URL.revokeObjectURL(recordedVideo.url);
-        }
-
-        setRecordedVideo(null);
-        startVideoRecording();
-    };
-
-    // =====================================================
-    // GET GPS + REVERSE GEOCODING
+    // LOCATION
     // =====================================================
 
     const getLocation = () => {
-        if (!navigator.geolocation) {
-            alert(
-                "Geolocation is not supported by this browser."
-            );
-
-            return;
-        }
-
+        if (!navigator.geolocation) { alert("Geolocation is not supported by this browser."); return; }
         setLocationLoading(true);
-
         navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const latitude =
-                    position.coords.latitude;
-
-                const longitude =
-                    position.coords.longitude;
-
-                const accuracy =
-                    position.coords.accuracy;
-
-                console.log(
-                    "========== GPS DEBUG =========="
-                );
-
-                console.log(
-                    "Latitude:",
-                    latitude
-                );
-
-                console.log(
-                    "Longitude:",
-                    longitude
-                );
-
-                console.log(
-                    "Accuracy:",
-                    accuracy
-                );
-
-                console.log(
-                    "Full position:",
-                    position
-                );
-
-                console.log(
-                    "================================"
-                );
-
-                // Show GPS immediately
-                setLocation({
-                    latitude,
-                    longitude,
-                    accuracy,
-                    address: "Finding address..."
-                });
-
-                // =================================================
-                // REVERSE GEOCODING
-                // =================================================
-
+            async (pos) => {
+                const { latitude, longitude, accuracy } = pos.coords;
+                setLocation({ latitude, longitude, accuracy, address: "Finding address…" });
                 try {
-                    const response = await fetch(
+                    const res = await fetch(
                         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-                        {
-                            headers: {
-                                Accept:
-                                    "application/json"
-                            }
-                        }
+                        { headers: { Accept: "application/json" } }
                     );
-
-                    if (!response.ok) {
-                        throw new Error(
-                            "Failed to get address"
-                        );
-                    }
-
-                    const data =
-                        await response.json();
-
-                    console.log(
-                        "Reverse geocoding response:",
-                        data
-                    );
-
-                    const address =
-                        data.display_name ||
-                        "Address not available";
-
-                    setLocation({
-                        latitude,
-                        longitude,
-                        accuracy,
-                        address
-                    });
-
-                } catch (error) {
-                    console.error(
-                        "Reverse geocoding error:",
-                        error
-                    );
-
-                    // GPS is still valid
-                    setLocation({
-                        latitude,
-                        longitude,
-                        accuracy,
-                        address:
-                            "Address not available"
-                    });
+                    if (!res.ok) throw new Error("geocode failed");
+                    const data = await res.json();
+                    setLocation({ latitude, longitude, accuracy, address: data.display_name || "Address not available" });
+                } catch {
+                    setLocation({ latitude, longitude, accuracy, address: "Address not available" });
                 }
-
                 setLocationLoading(false);
             },
-
-            (error) => {
-                console.error(
-                    "Location error:",
-                    error
-                );
-
-                setLocationLoading(false);
-
-                alert(
-                    "Unable to get your location. Please allow location permission."
-                );
-            },
-
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            }
+            () => { setLocationLoading(false); alert("Unable to get your location. Please allow location permission."); },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
     // =====================================================
-    // SUBMIT COMPLAINT
+    // SUBMIT
     // =====================================================
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        // =================================================
-        // VALIDATION
-        // =================================================
-
-        if (!category) {
-            alert("Please select a category.");
-            return;
+        if (!category)                             { alert("Please select a category."); return; }
+        if (!description.trim())                   { alert("Please enter a description."); return; }
+        if (!photo && !recordedVideo)              { alert("Please capture a photo or record a video."); return; }
+        if (photo && recordedVideo)                { alert("Please select either photo or video evidence."); return; }
+        if (!location)                             { alert("Please capture your location."); return; }
+        if (!location.address || location.address === "Finding address…") {
+            alert("Please wait until the address is detected."); return;
         }
 
-        if (!description.trim()) {
-            alert("Please enter a description.");
-            return;
-        }
+        const token = getToken();
+        if (!token) { alert("Please login again."); return; }
 
-        if (!photo && !recordedVideo) {
-            alert(
-                "Please capture a photo or record a video."
-            );
-
-            return;
-        }
-
-        if (photo && recordedVideo) {
-            alert(
-                "Please select either photo or video evidence."
-            );
-
-            return;
-        }
-
-        if (!location) {
-            alert("Please capture your location.");
-            return;
-        }
-
-        if (
-            !location.address ||
-            location.address ===
-                "Finding address..."
-        ) {
-            alert(
-                "Please wait until the address is detected."
-            );
-
-            return;
-        }
+        setSubmitting(true);
 
         try {
-            // =================================================
-            // 1. GET LOGIN TOKEN
-            // =================================================
+            const mediaFile = photo?.file || recordedVideo?.file;
+            const mediaType = photo ? "PHOTO" : "VIDEO";
+            if (!mediaFile) { alert("Evidence file not found."); return; }
 
-            const token =
-                localStorage.getItem("token");
+            const fileName = `${mediaType.toLowerCase()}-${Date.now()}-${mediaFile.name}`;
+            const filePath = `complaints/${fileName}`;
 
-            if (!token) {
-                alert("Please login again.");
-                return;
-            }
-
-            // =================================================
-            // 2. DETERMINE MEDIA
-            // =================================================
-
-            const mediaFile =
-                photo?.file ||
-                recordedVideo?.file;
-
-            const mediaType =
-                photo
-                    ? "PHOTO"
-                    : "VIDEO";
-
-            if (!mediaFile) {
-                alert("Evidence file not found.");
-                return;
-            }
-
-            // =================================================
-            // 3. CREATE FILE PATH
-            // =================================================
-
-            const fileName =
-                `${mediaType.toLowerCase()}-${Date.now()}-${mediaFile.name}`;
-
-            const filePath =
-                `complaints/${fileName}`;
-
-            console.log(
-                "Uploading evidence:",
-                filePath
-            );
-
-            // =================================================
-            // 4. UPLOAD TO SUPABASE
-            // =================================================
-
-            const {
-                error: uploadError
-            } = await supabase.storage
+            const { error: uploadError } = await supabase.storage
                 .from("evidence")
-                .upload(
-                    filePath,
-                    mediaFile,
-                    {
-                        contentType:
-                            mediaFile.type,
-                        upsert: false
-                    }
-                );
+                .upload(filePath, mediaFile, { contentType: mediaFile.type, upsert: false });
 
-            if (uploadError) {
-                console.error(
-                    "Supabase upload error:",
-                    uploadError
-                );
+            if (uploadError) { alert("Failed to upload evidence."); return; }
 
-                alert(
-                    "Failed to upload evidence."
-                );
-
-                return;
-            }
-
-            console.log(
-                "Evidence uploaded successfully!"
-            );
-
-            // =================================================
-            // 5. GET PUBLIC URL
-            // =================================================
-
-            const {
-                data: urlData
-            } = supabase.storage
-                .from("evidence")
-                .getPublicUrl(filePath);
-
-            const mediaUrl =
-                urlData.publicUrl;
-
-            console.log(
-                "Media URL:",
-                mediaUrl
-            );
-
-            // =================================================
-            // 6. CREATE COMPLAINT OBJECT
-            // =================================================
+            const { data: urlData } = supabase.storage.from("evidence").getPublicUrl(filePath);
+            const mediaUrl = urlData.publicUrl;
 
             const complaint = {
-                category: category,
+                category,
                 hazardEvidence,
-
-                description:
-                    description,
-
-                // GPS
-                latitude:
-                    location.latitude,
-
-                longitude:
-                    location.longitude,
-
-                accuracy:
-                    location.accuracy,
-
-                // Address
-                address:
-                    location.address,
-
-                // Evidence time
-                capturedAt:
-                    photo
-                        ? photo.capturedAt
-                        : recordedVideo.capturedAt,
-
-                // Media
-                mediaType:
-                    mediaType,
-
-                mediaUrl:
-                    mediaUrl,
-
-                // Status
-                status: "PENDING"
+                description,
+                latitude:   location.latitude,
+                longitude:  location.longitude,
+                accuracy:   location.accuracy,
+                address:    location.address,
+                capturedAt: photo ? photo.capturedAt : recordedVideo.capturedAt,
+                mediaType,
+                mediaUrl,
+                status: "PENDING",
             };
 
-            console.log(
-                "Sending complaint:",
-                complaint
-            );
+            const res = await fetch(`${API_URL}/api/complaints`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify(complaint),
+            });
 
-            // =================================================
-            // 7. SEND TO SPRING BOOT
-            // =================================================
+            if (!res.ok) { const t = await res.text(); console.error(t); throw new Error("Failed to submit complaint"); }
 
-            const response =
-                await fetch(
-                    `${API_URL}/api/complaints`,
-                    {
-                        method: "POST",
+            const saved = await res.json();
+            const code  = `CP-${String(saved.id).padStart(4, "0")}`;
+            const priority = severityOf(saved);
+            const status   = assessmentStatus(saved.severityAssessment);
+            const msg      = priority === "UNASSESSED" ? status : `${priority} priority · ${status}`;
 
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-
-                            Authorization:
-                                `Bearer ${token}`
-                        },
-
-                        body:
-                            JSON.stringify(
-                                complaint
-                            )
-                    }
-                );
-
-            if (!response.ok) {
-                const errorText =
-                    await response.text();
-
-                console.error(
-                    "Backend error:",
-                    errorText
-                );
-
-                throw new Error(
-                    "Failed to submit complaint"
-                );
-            }
-
-            // =================================================
-            // 8. GET SAVED COMPLAINT
-            // =================================================
-
-            const savedComplaint =
-                await response.json();
-
-            console.log(
-                "Saved complaint:",
-                savedComplaint
-            );
-
-            // =================================================
-            // 9. SUCCESS
-            // =================================================
-
-            const code =
-                `CP-${String(savedComplaint.id).padStart(4, "0")}`;
-            const priority = severityOf(savedComplaint);
-            const status = assessmentStatus(savedComplaint.severityAssessment);
-            const severityMessage = priority === "UNASSESSED" ? status : `${priority} priority · ${status}`;
-
-            if (savedComplaint.submissionResult === "ALREADY_REPORTED") {
-                alert(
-                    `You have already reported this issue (${code}).\nWe'll keep you updated on its progress.`
-                );
-            } else if (savedComplaint.submissionResult === "MERGED") {
-                alert(
-                    `Your report was added to an existing nearby issue.\nReference: ${code}\n${severityMessage}`
-                );
+            if (saved.submissionResult === "ALREADY_REPORTED") {
+                alert(`You have already reported this issue (${code}).\nWe'll keep you updated on its progress.`);
+            } else if (saved.submissionResult === "MERGED") {
+                alert(`Your report was added to an existing nearby issue.\nReference: ${code}\n${msg}`);
             } else {
-                alert(
-                    `Complaint submitted successfully!\nComplaint ID: ${code}\n${severityMessage}`
-                );
+                alert(`Complaint submitted successfully!\nComplaint ID: ${code}\n${msg}`);
             }
 
             navigate("/citizen");
-
-        } catch (error) {
-            console.error(
-                "Complaint submission error:",
-                error
-            );
-
-            alert(
-                "Failed to submit complaint."
-            );
+        } catch {
+            alert("Failed to submit complaint.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
+    const handleLogout = () => { clearSession(); navigate("/"); };
+
     // =====================================================
-    // PAGE
+    // RENDER
     // =====================================================
+
+    const hasMedia = photo || recordedVideo;
 
     return (
-        <div className="complaint-page">
+        <div className="cp-complaint-page cp-app">
 
-            {/* =================================================
-                HEADER
-            ================================================= */}
-
-            <header className="complaint-header">
-
+            {/* HEADER */}
+            <AppHeader role="CITIZEN" user={user} live="offline" onLogout={handleLogout}>
                 <button
-                    className="back-btn"
-                    onClick={() =>
-                        navigate("/citizen")
-                    }
+                    className="cp-btn cp-btn-ghost cp-btn-sm"
+                    onClick={() => navigate("/citizen")}
                 >
-                    ← Back
+                    <Icon name="chevron" size={14} style={{ transform: "rotate(180deg)" }} />
+                    Dashboard
                 </button>
+            </AppHeader>
 
-                <h1>
-                    Raise a Complaint
-                </h1>
+            {/* MAIN */}
+            <main className="cp-complaint-main">
 
-                <div className="header-space"></div>
-
-            </header>
-
-            {/* =================================================
-                MAIN
-            ================================================= */}
-
-            <main className="complaint-container">
-
-                <div className="complaint-intro">
-
-                    <h2>
-                        Report a Civic Issue
-                    </h2>
-
-                    <p>
-                        Report problems in your
-                        area with verified evidence.
-                    </p>
-
+                {/* HERO */}
+                <div className="cp-complaint-hero">
+                    <div className="cp-eyebrow">New Report</div>
+                    <h1>Report a Civic Issue</h1>
+                    <p>Attach photo or video evidence with GPS so officers can act fast.</p>
                 </div>
 
-                <form
-                    className="complaint-form"
-                    onSubmit={handleSubmit}
-                >
+                <form onSubmit={handleSubmit}>
+                    <div className="cp-complaint-card">
 
-                    {/* =================================================
-                        CATEGORY
-                    ================================================= */}
-
-                    <div className="form-group">
-
-                        <label>
-                            Complaint Category
-                        </label>
-
-                        <select
-                            value={category}
-                            onChange={(e) => {
-                                setCategory(e.target.value);
-                                setHazardEvidence({});
-                            }}
-                        >
-
-                            <option value="">
-                                Select a category
-                            </option>
-
-                            {CATEGORIES.map((option) => <option key={option}>{option}</option>)}
-
-                        </select>
-
-                    </div>
-
-                    <HazardEvidenceFields category={category} value={hazardEvidence} onChange={setHazardEvidence} />
-
-                    {/* =================================================
-                        DESCRIPTION
-                    ================================================= */}
-
-                    <div className="form-group">
-
-                        <label>
-                            Description
-                        </label>
-
-                        <textarea
-                            value={description}
-                            onChange={(e) =>
-                                setDescription(
-                                    e.target.value
-                                )
-                            }
-                            placeholder="Describe the problem..."
-                            rows="6"
-                            maxLength="500"
-                        />
-
-                        <div className="character-count">
-                            {description.length}/500
-                        </div>
-
-                    </div>
-
-                    {/* =================================================
-                        LOCATION
-                    ================================================= */}
-
-                    <div className="form-group">
-
-                        <label>
-                            Complaint Location
-                        </label>
-
-                        <div className="location-box">
-
-                            <div className="location-info">
-
-                                <div className="location-icon">
-                                    📍
-                                </div>
-
-                                <div>
-
-                                    {!location ? (
-
-                                        <>
-                                            <h3>
-                                                Location not captured
-                                            </h3>
-
-                                            <p>
-                                                GPS location will
-                                                be attached to
-                                                your complaint.
-                                            </p>
-                                        </>
-
-                                    ) : (
-
-                                        <>
-                                            <h3>
-                                                ✓ Location captured
-                                            </h3>
-
-                                            <p>
-                                                📍{" "}
-                                                {
-                                                    location.address
-                                                }
-                                            </p>
-
-                                            <p className="coordinates">
-                                                {location.latitude.toFixed(
-                                                    6
-                                                )}
-                                                ,{" "}
-                                                {location.longitude.toFixed(
-                                                    6
-                                                )}
-                                            </p>
-
-                                            <p>
-                                                Accuracy:{" "}
-                                                {location.accuracy.toFixed(
-                                                    1
-                                                )}{" "}
-                                                m
-                                            </p>
-                                        </>
-
-                                    )}
-
-                                </div>
-
-                            </div>
-
-                            <button
-                                type="button"
-                                className="location-btn"
-                                onClick={getLocation}
-                                disabled={
-                                    locationLoading
-                                }
+                        {/* ── CATEGORY ── */}
+                        <div className="cp-field">
+                            <label htmlFor="cp-category">Complaint Category</label>
+                            <select
+                                id="cp-category"
+                                className="cp-complaint-select"
+                                value={category}
+                                onChange={(e) => { setCategory(e.target.value); setHazardEvidence({}); }}
+                                required
                             >
-                                {locationLoading
-                                    ? "Finding location..."
-                                    : "Get Location"}
-                            </button>
-
+                                <option value="">Select a category…</option>
+                                {CATEGORIES.map((opt) => <option key={opt}>{opt}</option>)}
+                            </select>
                         </div>
 
-                    </div>
+                        {/* ── HAZARD EVIDENCE (dynamic per category) ── */}
+                        {category && (
+                            <HazardEvidenceFields
+                                category={category}
+                                value={hazardEvidence}
+                                onChange={setHazardEvidence}
+                            />
+                        )}
 
-                    {/* =================================================
-                        EVIDENCE
-                    ================================================= */}
+                        <hr className="cp-section-divider" />
 
-                    <div className="form-group">
+                        {/* ── DESCRIPTION ── */}
+                        <div className="cp-field">
+                            <label htmlFor="cp-desc">Description</label>
+                            <textarea
+                                id="cp-desc"
+                                className="cp-complaint-textarea"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Describe the problem in detail…"
+                                rows={5}
+                                maxLength={500}
+                                required
+                            />
+                            <div className="cp-char-count">{description.length} / 500</div>
+                        </div>
 
-                        <label>
-                            Evidence
-                        </label>
+                        <hr className="cp-section-divider" />
 
-                        <p className="evidence-text">
-                            Capture evidence directly
-                            using your device camera.
-                        </p>
+                        {/* ── LOCATION ── */}
+                        <div className="cp-field">
+                            <label>Complaint Location</label>
+                            <div className={`cp-loc-box ${location ? "cp-loc-ok" : ""}`}>
+                                <div className="cp-loc-info">
+                                    <span className="cp-loc-icon">
+                                        <Icon name="pin" size={20} />
+                                    </span>
+                                    <div>
+                                        {!location ? (
+                                            <>
+                                                <h3>Location not captured</h3>
+                                                <p>GPS coordinates will be attached to your report.</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <h3>✓ Location captured</h3>
+                                                <p>{location.address}</p>
+                                                <p className="cp-loc-coords">
+                                                    {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                                                    {" · "}±{location.accuracy.toFixed(0)} m
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="cp-btn cp-btn-primary cp-btn-sm"
+                                    onClick={getLocation}
+                                    disabled={locationLoading}
+                                    style={{ whiteSpace: "nowrap" }}
+                                >
+                                    {locationLoading ? (
+                                        <><span className="lg-spinner" style={{ width: 13, height: 13 }} /> Finding…</>
+                                    ) : (
+                                        <><Icon name="pin" size={14} /> {location ? "Refresh" : "Get location"}</>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
 
-                        {/* =================================================
-                            PHOTO / VIDEO OPTIONS
-                        ================================================= */}
+                        <hr className="cp-section-divider" />
 
-                        {!photo &&
-                            !recordedVideo &&
-                            !showCamera && (
+                        {/* ── EVIDENCE ── */}
+                        <div className="cp-field">
+                            <label>Evidence</label>
+                            <span className="cp-hint">
+                                Capture a photo or record a short video directly with your device camera.
+                            </span>
 
-                                <div className="evidence-container">
-
-                                    <button
-                                        type="button"
-                                        className="evidence-card photo-card"
-                                        onClick={
-                                            openCamera
-                                        }
-                                    >
-
-                                        <span className="evidence-icon">
-                                            📷
-                                        </span>
-
-                                        <span className="evidence-title">
-                                            Capture Photo
-                                        </span>
-
-                                        <span className="evidence-subtitle">
-                                            Open Camera
-                                        </span>
-
+                            {/* PICK PHOTO / VIDEO */}
+                            {!hasMedia && !showCamera && (
+                                <div className="cp-evidence-cards">
+                                    <button type="button" className="cp-ev-card cp-ev-photo" onClick={openCamera}>
+                                        <span className="cp-ev-icon"><Icon name="camera" size={22} /></span>
+                                        <span className="cp-ev-title">Capture Photo</span>
+                                        <span className="cp-ev-sub">Open camera</span>
                                     </button>
-
-                                    <button
-                                        type="button"
-                                        className="evidence-card video-card"
-                                        onClick={
-                                            startVideoRecording
-                                        }
-                                    >
-
-                                        <span className="evidence-icon">
-                                            🎥
-                                        </span>
-
-                                        <span className="evidence-title">
-                                            Record Video
-                                        </span>
-
-                                        <span className="evidence-subtitle">
-                                            Start Recording
-                                        </span>
-
+                                    <button type="button" className="cp-ev-card cp-ev-video" onClick={startVideoRecording}>
+                                        <span className="cp-ev-icon"><Icon name="play" size={22} /></span>
+                                        <span className="cp-ev-title">Record Video</span>
+                                        <span className="cp-ev-sub">Start recording</span>
                                     </button>
-
                                 </div>
                             )}
 
-                        {/* =================================================
-                            CAMERA
-                        ================================================= */}
-
-                        {showCamera && (
-
-                            <div className="camera-container">
-
-                                <video
-                                    ref={videoRef}
-                                    autoPlay
-                                    playsInline
-                                    muted
-                                    className="camera-preview"
-                                />
-
-                                {cameraMode ===
-                                    "VIDEO" &&
-                                    isRecording && (
-
-                                        <div className="recording-indicator">
-                                            <span>
-                                                ●
-                                            </span>
-                                            Recording...
+                            {/* CAMERA FEED */}
+                            {showCamera && (
+                                <div className="cp-camera-wrap">
+                                    <video
+                                        ref={videoRef}
+                                        autoPlay
+                                        playsInline
+                                        muted
+                                        className="cp-camera-feed"
+                                    />
+                                    {cameraMode === "VIDEO" && isRecording && (
+                                        <div className="cp-recording-badge">
+                                            <span className="cp-recording-dot" />
+                                            Recording…
                                         </div>
                                     )}
+                                    <div className="cp-camera-controls">
+                                        {cameraMode === "PHOTO" && (
+                                            <button type="button" className="cp-capture-btn" onClick={capturePhoto}>
+                                                <Icon name="camera" size={16} /> Capture
+                                            </button>
+                                        )}
+                                        {cameraMode === "VIDEO" && isRecording && (
+                                            <button type="button" className="cp-capture-btn" onClick={stopVideoRecording}>
+                                                <Icon name="x" size={16} /> Stop recording
+                                            </button>
+                                        )}
+                                        <button type="button" className="cp-cancel-camera" onClick={cancelCamera}>
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
-                                <div className="camera-controls">
-
-                                    {cameraMode ===
-                                        "PHOTO" && (
-
+                            {/* PHOTO PREVIEW */}
+                            {photo && (
+                                <div className="cp-preview-wrap">
+                                    <img src={photo.url} alt="Captured evidence" className="cp-preview-media" />
+                                    <div className="cp-preview-info">
+                                        <p className="cp-preview-ok">
+                                            <Icon name="check" size={13} /> Photo captured
+                                        </p>
+                                        <p>🕐 {new Date(photo.capturedAt).toLocaleString()}</p>
+                                        {location && <p><Icon name="pin" size={12} /> {location.address}</p>}
+                                    </div>
+                                    <div className="cp-preview-footer">
                                         <button
                                             type="button"
-                                            className="capture-btn"
-                                            onClick={
-                                                capturePhoto
-                                            }
+                                            className="cp-btn cp-btn-ghost cp-btn-sm"
+                                            onClick={retakePhoto}
                                         >
-                                            📷 Capture
+                                            <Icon name="refresh" size={13} /> Retake photo
                                         </button>
-                                    )}
+                                    </div>
+                                </div>
+                            )}
 
-                                    {cameraMode ===
-                                        "VIDEO" &&
-                                        isRecording && (
-
+                            {/* VIDEO PREVIEW */}
+                            {recordedVideo && (
+                                <div className="cp-preview-wrap">
+                                    <video
+                                        src={recordedVideo.url}
+                                        controls
+                                        playsInline
+                                        className="cp-preview-media"
+                                    />
+                                    <div className="cp-preview-info">
+                                        <p className="cp-preview-ok">
+                                            <Icon name="check" size={13} /> Video recorded
+                                        </p>
+                                        <p>🕐 {new Date(recordedVideo.capturedAt).toLocaleString()}</p>
+                                        {location && <p><Icon name="pin" size={12} /> {location.address}</p>}
+                                    </div>
+                                    <div className="cp-preview-footer">
                                         <button
                                             type="button"
-                                            className="capture-btn video-stop-btn"
-                                            onClick={
-                                                stopVideoRecording
-                                            }
+                                            className="cp-btn cp-btn-ghost cp-btn-sm"
+                                            onClick={retakeVideo}
                                         >
-                                            ⏹ Stop Recording
+                                            <Icon name="refresh" size={13} /> Retake video
                                         </button>
-                                    )}
-
-                                    <button
-                                        type="button"
-                                        className="cancel-camera-btn"
-                                        onClick={
-                                            cancelCamera
-                                        }
-                                    >
-                                        Cancel
-                                    </button>
-
+                                    </div>
                                 </div>
+                            )}
 
-                            </div>
-                        )}
+                            {/* Hidden canvas for photo capture */}
+                            <canvas ref={canvasRef} style={{ display: "none" }} />
+                        </div>
 
-                        {/* =================================================
-                            PHOTO PREVIEW
-                        ================================================= */}
-
-                        {photo && (
-
-                            <div className="photo-preview-container">
-
-                                <img
-                                    src={photo.url}
-                                    alt="Captured evidence"
-                                    className="photo-preview"
-                                />
-
-                                <div className="photo-details">
-
-                                    <p>
-                                        ✓ Photo captured
-                                    </p>
-
-                                    <p>
-                                        🕐{" "}
-                                        {new Date(
-                                            photo.capturedAt
-                                        ).toLocaleString()}
-                                    </p>
-
-                                    {location && (
-
-                                        <>
-                                            <p>
-                                                📍{" "}
-                                                {
-                                                    location.address
-                                                }
-                                            </p>
-
-                                            <p>
-                                                {
-                                                    location.latitude.toFixed(
-                                                        6
-                                                    )
-                                                }
-                                                ,{" "}
-                                                {
-                                                    location.longitude.toFixed(
-                                                        6
-                                                    )
-                                                }
-                                            </p>
-                                        </>
-
-                                    )}
-
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="retake-btn"
-                                    onClick={
-                                        retakePhoto
-                                    }
-                                >
-                                    Retake Photo
-                                </button>
-
-                            </div>
-                        )}
-
-                        {/* =================================================
-                            VIDEO PREVIEW
-                        ================================================= */}
-
-                        {recordedVideo && (
-
-                            <div className="photo-preview-container">
-
-                                <video
-                                    src={
-                                        recordedVideo.url
-                                    }
-                                    controls
-                                    playsInline
-                                    className="photo-preview video-preview"
-                                />
-
-                                <div className="photo-details">
-
-                                    <p>
-                                        ✓ Video recorded
-                                    </p>
-
-                                    <p>
-                                        🕐{" "}
-                                        {new Date(
-                                            recordedVideo.capturedAt
-                                        ).toLocaleString()}
-                                    </p>
-
-                                    {location && (
-
-                                        <>
-                                            <p>
-                                                📍{" "}
-                                                {
-                                                    location.address
-                                                }
-                                            </p>
-
-                                            <p>
-                                                {
-                                                    location.latitude.toFixed(
-                                                        6
-                                                    )
-                                                }
-                                                ,{" "}
-                                                {
-                                                    location.longitude.toFixed(
-                                                        6
-                                                    )
-                                                }
-                                            </p>
-                                        </>
-
-                                    )}
-
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="retake-btn"
-                                    onClick={
-                                        retakeVideo
-                                    }
-                                >
-                                    Retake Video
-                                </button>
-
-                            </div>
-                        )}
-
-                        {/* Hidden canvas */}
-
-                        <canvas
-                            ref={canvasRef}
-                            style={{
-                                display: "none"
-                            }}
-                        />
+                        {/* ── SUBMIT ── */}
+                        <button
+                            type="submit"
+                            className="cp-submit-btn"
+                            disabled={submitting}
+                        >
+                            {submitting ? (
+                                <><span className="lg-spinner" /> Submitting…</>
+                            ) : (
+                                <><Icon name="bolt" size={16} /> Submit Complaint</>
+                            )}
+                        </button>
 
                     </div>
-
-                    {/* =================================================
-                        SUBMIT
-                    ================================================= */}
-
-                    <button
-                        type="submit"
-                        className="submit-btn"
-                    >
-                        Submit Complaint
-                    </button>
-
                 </form>
 
             </main>
-
         </div>
     );
 }

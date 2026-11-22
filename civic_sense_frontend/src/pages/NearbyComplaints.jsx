@@ -1,37 +1,33 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SeverityBadge } from "../components/ui";
-import { API_URL } from "../lib/api";
+import { AppHeader, Icon, SeverityBadge, StatusBadge } from "../components/ui";
+import { API_URL, clearSession, getToken } from "../lib/api";
+import "../styles/theme.css";
 import "../styles/NearbyComplaints.css";
 
 function NearbyComplaints() {
     const navigate = useNavigate();
 
+    const user = (() => {
+        try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+    })();
+
     const [complaints, setComplaints] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-
+    const [loading, setLoading]       = useState(true);
+    const [error, setError]           = useState("");
     const [selectedImage, setSelectedImage] = useState(null);
-
-    // Radius in kilometers
-    const [radius, setRadius] = useState(5);
+    const [radius, setRadius]         = useState(5);
 
     // =====================================================
-    // GET NEARBY COMPLAINTS
+    // FETCH NEARBY
     // =====================================================
 
     const fetchNearbyComplaints = () => {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-            navigate("/");
-            return;
-        }
+        const token = getToken();
+        if (!token) { navigate("/"); return; }
 
         if (!navigator.geolocation) {
-            setError(
-                "Geolocation is not supported by your browser."
-            );
+            setError("Geolocation is not supported by your browser.");
             setLoading(false);
             return;
         }
@@ -41,629 +37,289 @@ function NearbyComplaints() {
 
         navigator.geolocation.getCurrentPosition(
             async (position) => {
-                const latitude = position.coords.latitude;
-                const longitude = position.coords.longitude;
-
-                console.log("My location:", {
-                    latitude,
-                    longitude,
-                });
-
+                const { latitude, longitude } = position.coords;
                 try {
-                    const response = await fetch(
+                    const res = await fetch(
                         `${API_URL}/api/complaints/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radius}`,
-                        {
-                            method: "GET",
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                            },
-                        }
+                        { headers: { Authorization: `Bearer ${token}` } }
                     );
-
-                    if (response.status === 401 || response.status === 403) {
-                        localStorage.removeItem("token");
-                        localStorage.removeItem("user");
-                        navigate("/");
-                        return;
+                    if (res.status === 401 || res.status === 403) {
+                        clearSession(); navigate("/"); return;
                     }
-
-                    if (!response.ok) {
-                        throw new Error(
-                            "Failed to fetch nearby complaints"
-                        );
-                    }
-
-                    const data = await response.json();
-
-                    console.log("Nearby complaints:", data);
-
-                    setComplaints(
-                        Array.isArray(data) ? data : []
-                    );
-
+                    if (!res.ok) throw new Error("Failed to fetch nearby complaints");
+                    const data = await res.json();
+                    setComplaints(Array.isArray(data) ? data : []);
                 } catch (err) {
-                    console.error(
-                        "Nearby complaint error:",
-                        err
-                    );
-
-                    setError(
-                        "Unable to load nearby complaints."
-                    );
+                    setError("Unable to load nearby complaints.");
                 } finally {
                     setLoading(false);
                 }
             },
-
             (locationError) => {
-                console.error(
-                    "Location error:",
-                    locationError
-                );
-
                 setLoading(false);
-
                 switch (locationError.code) {
                     case locationError.PERMISSION_DENIED:
-                        setError(
-                            "Location permission was denied. Please allow location access."
-                        );
-                        break;
-
+                        setError("Location permission was denied. Please allow location access."); break;
                     case locationError.POSITION_UNAVAILABLE:
-                        setError(
-                            "Your current location could not be determined."
-                        );
-                        break;
-
+                        setError("Your current location could not be determined."); break;
                     case locationError.TIMEOUT:
-                        setError(
-                            "Location request timed out. Please try again."
-                        );
-                        break;
-
+                        setError("Location request timed out. Please try again."); break;
                     default:
-                        setError(
-                            "Unable to get your location."
-                        );
+                        setError("Unable to get your location.");
                 }
             },
-
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0,
-            }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
-    // =====================================================
-    // INITIAL FETCH
-    // =====================================================
-
-    useEffect(() => {
-        fetchNearbyComplaints();
-    }, [radius]);
+    useEffect(() => { fetchNearbyComplaints(); }, [radius]);
 
     // =====================================================
-    // LIKE / UNLIKE
+    // LIKE
     // =====================================================
 
     const handleLike = async (complaint) => {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-            navigate("/");
-            return;
-        }
-
-        const complaintId = complaint.id;
+        const token = getToken();
+        if (!token) { navigate("/"); return; }
 
         try {
-            const method = complaint.liked
-                ? "DELETE"
-                : "POST";
-
-            const response = await fetch(
-                `${API_URL}/api/complaints/${complaintId}/like`,
-                {
-                    method: method,
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
+            const res = await fetch(
+                `${API_URL}/api/complaints/${complaint.id}/like`,
+                { method: complaint.liked ? "DELETE" : "POST", headers: { Authorization: `Bearer ${token}` } }
             );
-
-            if (response.status === 401 || response.status === 403) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                navigate("/");
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error("Like operation failed");
-            }
-
-            const data = await response.json();
-
-            console.log("Like response:", data);
-
-            // Update only this complaint
-            setComplaints((previousComplaints) =>
-                previousComplaints.map((item) =>
-                    item.id === complaintId
-                        ? {
-                              ...item,
-                              liked: data.liked,
-                              likeCount: data.likeCount,
-                          }
-                        : item
-                )
+            if (res.status === 401 || res.status === 403) { clearSession(); navigate("/"); return; }
+            if (!res.ok) throw new Error("Like failed");
+            const data = await res.json();
+            setComplaints(prev =>
+                prev.map(c => c.id === complaint.id ? { ...c, liked: data.liked, likeCount: data.likeCount } : c)
             );
-
-        } catch (err) {
-            console.error(
-                "Like error:",
-                err
-            );
-        }
-    };
-
-    // =====================================================
-    // IMAGE ERROR
-    // =====================================================
-
-    const handleImageError = (event) => {
-        event.currentTarget.style.display = "none";
-
-        const container =
-            event.currentTarget.parentElement;
-
-        if (container) {
-            container.classList.add("image-error");
-        }
+        } catch { /* silent */ }
     };
 
     // =====================================================
     // FORMAT DISTANCE
     // =====================================================
 
-    const formatDistance = (distance) => {
-        if (
-            typeof distance !== "number" ||
-            !Number.isFinite(distance)
-        ) {
-            return null;
-        }
-
-        if (distance < 1) {
-            return `${Math.round(distance * 1000)} m away`;
-        }
-
-        return `${distance.toFixed(1)} km away`;
+    const formatDistance = (d) => {
+        if (typeof d !== "number" || !Number.isFinite(d)) return null;
+        return d < 1 ? `${Math.round(d * 1000)} m away` : `${d.toFixed(1)} km away`;
     };
 
-    // =====================================================
-    // LOGOUT
-    // =====================================================
-
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-
-        navigate("/");
-    };
+    const handleLogout = () => { clearSession(); navigate("/"); };
 
     // =====================================================
-    // UI
+    // RENDER
     // =====================================================
 
     return (
-        <div className="nearby-page">
+        <div className="nb-page cp-app">
 
-            {/* ================= HEADER ================= */}
-
-            <header className="nearby-header">
-
-                <div
-                    className="nearby-logo"
+            {/* HEADER */}
+            <AppHeader role="CITIZEN" user={user} live="offline" onLogout={handleLogout}>
+                <button
+                    className="cp-btn cp-btn-ghost cp-btn-sm"
                     onClick={() => navigate("/citizen")}
                 >
-                    CivicProof
-                </div>
+                    <Icon name="chevron" size={14} style={{ transform: "rotate(180deg)" }} />
+                    Dashboard
+                </button>
+            </AppHeader>
 
-                <div className="nearby-header-actions">
+            {/* MAIN */}
+            <main className="nb-main">
 
-                    <button
-                        className="back-btn"
-                        onClick={() => navigate("/citizen")}
-                    >
-                        ← Dashboard
-                    </button>
-
-                    <button
-                        className="nearby-logout-btn"
-                        onClick={handleLogout}
-                    >
-                        Logout
-                    </button>
-
-                </div>
-
-            </header>
-
-
-            {/* ================= MAIN ================= */}
-
-            <main className="nearby-main">
-
-                {/* ================= TITLE ================= */}
-
-                <section className="nearby-title-section">
-
+                {/* HERO */}
+                <div className="nb-hero">
                     <div>
-                        <h1>
-                            📍 Nearby Complaints
-                        </h1>
-
-                        <p>
-                            See civic issues reported near your location.
-                        </p>
+                        <div className="cp-eyebrow">Issues Near Me</div>
+                        <h1>Nearby Complaints</h1>
+                        <p>Civic issues reported within your area, sorted by proximity.</p>
                     </div>
 
-                    <div className="radius-control">
-
-                        <label htmlFor="radius">
-                            Search radius
-                        </label>
-
+                    <div className="nb-radius">
+                        <label htmlFor="nb-radius-sel">Search radius</label>
                         <select
-                            id="radius"
+                            id="nb-radius-sel"
                             value={radius}
-                            onChange={(e) =>
-                                setRadius(
-                                    Number(e.target.value)
-                                )
-                            }
+                            onChange={(e) => setRadius(Number(e.target.value))}
                         >
-                            <option value={1}>
-                                1 km
-                            </option>
-
-                            <option value={2}>
-                                2 km
-                            </option>
-
-                            <option value={5}>
-                                5 km
-                            </option>
-
-                            <option value={10}>
-                                10 km
-                            </option>
-
-                            <option value={20}>
-                                20 km
-                            </option>
+                            <option value={1}>1 km</option>
+                            <option value={2}>2 km</option>
+                            <option value={5}>5 km</option>
+                            <option value={10}>10 km</option>
+                            <option value={20}>20 km</option>
                         </select>
-
                     </div>
+                </div>
 
-                </section>
-
-
-                {/* ================= REFRESH ================= */}
-
-                <div className="nearby-toolbar">
-
+                {/* TOOLBAR */}
+                <div className="nb-toolbar">
                     <span>
-                        Showing complaints within{" "}
-                        <strong>{radius} km</strong>
+                        Showing complaints within <strong>{radius} km</strong> of your location
                     </span>
-
                     <button
-                        className="refresh-btn"
+                        className="cp-btn cp-btn-ghost cp-btn-sm"
                         onClick={fetchNearbyComplaints}
                         disabled={loading}
                     >
-                        🔄 Refresh Location
+                        <Icon name="refresh" size={14} />
+                        Refresh location
                     </button>
-
                 </div>
 
-
-                {/* ================= LOADING ================= */}
-
+                {/* LOADING */}
                 {loading && (
-                    <div className="nearby-message">
-
-                        <div className="loader"></div>
-
-                        <h3>
-                            Finding nearby complaints...
-                        </h3>
-
-                        <p>
-                            Please allow location access.
-                        </p>
-
+                    <div className="nb-state">
+                        <div className="nb-spinner" />
+                        <h3>Finding nearby complaints…</h3>
+                        <p>Please allow location access when prompted.</p>
                     </div>
                 )}
 
-
-                {/* ================= ERROR ================= */}
-
+                {/* ERROR */}
                 {!loading && error && (
-                    <div className="nearby-message error">
-
-                        <div className="message-icon">
-                            ⚠️
+                    <div className="nb-state nb-error">
+                        <div className="nb-state-icon">
+                            <Icon name="alert" size={24} />
                         </div>
-
-                        <h3>
-                            Unable to find complaints
-                        </h3>
-
-                        <p>
-                            {error}
-                        </p>
-
+                        <h3>Unable to find complaints</h3>
+                        <p>{error}</p>
                         <button
-                            className="retry-btn"
+                            className="cp-btn cp-btn-primary"
+                            style={{ marginTop: 8 }}
                             onClick={fetchNearbyComplaints}
                         >
-                            Try Again
+                            <Icon name="refresh" size={15} /> Try again
                         </button>
-
                     </div>
                 )}
 
-
-                {/* ================= NO COMPLAINTS ================= */}
-
-                {!loading &&
-                    !error &&
-                    complaints.length === 0 && (
-
-                        <div className="nearby-message">
-
-                            <div className="message-icon">
-                                🎉
-                            </div>
-
-                            <h3>
-                                No nearby complaints
-                            </h3>
-
-                            <p>
-                                There are no reported complaints
-                                within {radius} km of your location.
-                            </p>
-
-                            <button
-                                className="refresh-btn"
-                                onClick={fetchNearbyComplaints}
-                            >
-                                🔄 Search Again
-                            </button>
-
+                {/* EMPTY */}
+                {!loading && !error && complaints.length === 0 && (
+                    <div className="nb-state">
+                        <div className="nb-state-icon">
+                            <Icon name="pin" size={24} />
                         </div>
-                    )}
+                        <h3>No nearby complaints</h3>
+                        <p>
+                            No reported issues within <strong>{radius} km</strong> of your location.
+                            Try widening the radius or search again.
+                        </p>
+                        <button
+                            className="cp-btn cp-btn-ghost"
+                            style={{ marginTop: 8 }}
+                            onClick={fetchNearbyComplaints}
+                        >
+                            <Icon name="refresh" size={15} /> Search again
+                        </button>
+                    </div>
+                )}
 
+                {/* GRID */}
+                {!loading && !error && complaints.length > 0 && (
+                    <section className="nb-grid">
+                        {complaints.map((complaint) => (
+                            <article className="nb-card" key={complaint.id}>
 
-                {/* ================= COMPLAINTS ================= */}
+                                {/* IMAGE */}
+                                <div className="nb-card-img">
+                                    {complaint.mediaUrl ? (
+                                        <img
+                                            src={complaint.mediaUrl}
+                                            alt={complaint.category || "Complaint"}
+                                            onClick={() => setSelectedImage(complaint.mediaUrl)}
+                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                        />
+                                    ) : (
+                                        <div className="nb-card-no-img">
+                                            <Icon name="camera" size={28} />
+                                            <span>No image</span>
+                                        </div>
+                                    )}
 
-                {!loading &&
-                    !error &&
-                    complaints.length > 0 && (
+                                    {/* DISTANCE BADGE */}
+                                    {complaint.distance != null && (
+                                        <span className="nb-dist">
+                                            <Icon name="pin" size={12} />
+                                            {formatDistance(complaint.distance)}
+                                        </span>
+                                    )}
+                                </div>
 
-                        <section className="nearby-grid">
-
-                            {complaints.map((complaint) => (
-
-                                <article
-                                    className="nearby-card"
-                                    key={complaint.id}
-                                >
-
-                                    {/* IMAGE */}
-
-                                    <div className="nearby-image-container">
-
-                                        {complaint.mediaUrl ? (
-                                            <img
-                                                src={complaint.mediaUrl}
-                                                alt={
-                                                    complaint.category ||
-                                                    "Complaint"
-                                                }
-                                                className="nearby-image"
-                                                onClick={() =>
-                                                    setSelectedImage(
-                                                        complaint.mediaUrl
-                                                    )
-                                                }
-                                                onError={
-                                                    handleImageError
-                                                }
-                                            />
-                                        ) : (
-                                            <div className="no-image">
-                                                <span>
-                                                    📷
-                                                </span>
-
-                                                <p>
-                                                    No image
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {/* DISTANCE */}
-
-                                        {complaint.distance !==
-                                            undefined &&
-                                            complaint.distance !==
-                                                null && (
-                                                <span className="distance-badge">
-                                                    📍{" "}
-                                                    {formatDistance(
-                                                        complaint.distance
-                                                    )}
-                                                </span>
-                                            )}
-
+                                {/* BODY */}
+                                <div className="nb-card-body">
+                                    <div className="nb-card-row">
+                                        <h2>{complaint.category || "Civic Issue"}</h2>
+                                        <StatusBadge status={complaint.status} />
+                                        <SeverityBadge complaint={complaint} showScore={false} />
                                     </div>
 
+                                    <p className="nb-desc">
+                                        {complaint.description || "No description provided."}
+                                    </p>
 
-                                    {/* CONTENT */}
+                                    {complaint.address && (
+                                        <p className="nb-addr">
+                                            <Icon name="pin" size={12} />
+                                            {complaint.address}
+                                        </p>
+                                    )}
 
-                                    <div className="nearby-card-content">
+                                    <p className="nb-date">
+                                        {complaint.capturedAt
+                                            ? new Date(complaint.capturedAt).toLocaleString()
+                                            : "Date unavailable"}
+                                    </p>
 
-                                        {/* CATEGORY + STATUS */}
-
-                                        <div className="nearby-category-row">
-
-                                            <h2>
-                                                {complaint.category ||
-                                                    "Civic Issue"}
-                                            </h2>
-
-                                            <span
-                                                className={`nearby-status ${
-                                                    complaint.status
-                                                        ?.toLowerCase()
-                                                        .replace(
-                                                            /\s+/g,
-                                                            "-"
-                                                        ) ||
-                                                    "unknown"
-                                                }`}
-                                            >
-                                                {complaint.status ||
-                                                    "UNKNOWN"}
+                                    {/* ACTIONS */}
+                                    <div className="nb-card-actions">
+                                        <button
+                                            className={`nb-like ${complaint.liked ? "nb-liked" : ""}`}
+                                            onClick={() => handleLike(complaint)}
+                                        >
+                                            <Icon name={complaint.liked ? "check" : "users"} size={14} />
+                                            {complaint.liked ? "Supported" : "Support"}
+                                            <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                                                {complaint.likeCount ?? 0}
                                             </span>
+                                        </button>
 
-                                            <SeverityBadge complaint={complaint} />
-                                        </div>
-
-
-                                        {/* DESCRIPTION */}
-
-                                        <p className="nearby-description">
-                                            {complaint.description ||
-                                                "No description provided."}
-                                        </p>
-
-
-                                        {/* ADDRESS */}
-
-                                        <p className="nearby-address">
-                                            📍{" "}
-                                            {complaint.address ||
-                                                "Address not available"}
-                                        </p>
-
-
-                                        {/* DATE */}
-
-                                        <p className="nearby-date">
-                                            {complaint.capturedAt
-                                                ? new Date(
-                                                      complaint.capturedAt
-                                                  ).toLocaleString()
-                                                : "Date unavailable"}
-                                        </p>
-
-
-                                        {/* ACTIONS */}
-
-                                        <div className="nearby-actions">
-
-                                            <button
-                                                className={`like-btn ${
-                                                    complaint.liked
-                                                        ? "liked"
-                                                        : ""
-                                                }`}
-                                                onClick={() =>
-                                                    handleLike(
-                                                        complaint
-                                                    )
-                                                }
-                                            >
-                                                {complaint.liked
-                                                    ? "❤️ Liked"
-                                                    : "🤍 Like"}
-
-                                                <span>
-                                                    {complaint.likeCount ??
-                                                        0}
-                                                </span>
-                                            </button>
-
-
-                                            <button
-                                                className="details-btn"
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/report/${complaint.id}`
-                                                    )
-                                                }
-                                            >
-                                                View Details →
-                                            </button>
-
-                                        </div>
-
+                                        <button
+                                            className="nb-details"
+                                            onClick={() => navigate(`/report/${complaint.id}`)}
+                                        >
+                                            View details
+                                            <Icon name="chevron" size={14} />
+                                        </button>
                                     </div>
+                                </div>
 
-                                </article>
-
-                            ))}
-
-                        </section>
-                    )}
+                            </article>
+                        ))}
+                    </section>
+                )}
 
             </main>
 
-
-            {/* ================= IMAGE MODAL ================= */}
-
+            {/* IMAGE MODAL */}
             {selectedImage && (
-
                 <div
-                    className="nearby-image-modal"
-                    onClick={() =>
-                        setSelectedImage(null)
-                    }
+                    className="nb-modal-bg"
+                    onClick={() => setSelectedImage(null)}
                 >
-
                     <div
-                        className="nearby-modal-content"
-                        onClick={(e) =>
-                            e.stopPropagation()
-                        }
+                        className="nb-modal-box"
+                        onClick={(e) => e.stopPropagation()}
                     >
-
                         <button
-                            className="nearby-modal-close"
-                            onClick={() =>
-                                setSelectedImage(null)
-                            }
+                            className="nb-modal-close"
+                            onClick={() => setSelectedImage(null)}
+                            aria-label="Close"
                         >
                             ×
                         </button>
-
-                        <img
-                            src={selectedImage}
-                            alt="Complaint evidence"
-                            className="nearby-modal-image"
-                        />
-
+                        <img src={selectedImage} alt="Complaint evidence" />
                     </div>
-
                 </div>
             )}
 
