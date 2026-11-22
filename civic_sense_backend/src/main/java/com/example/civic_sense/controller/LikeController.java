@@ -6,7 +6,6 @@ import com.example.civic_sense.entity.User;
 import com.example.civic_sense.repository.ComplaintRepository;
 import com.example.civic_sense.repository.LikeRepository;
 import com.example.civic_sense.repository.UserRepository;
-import com.example.civic_sense.severity.SeverityService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,18 +21,15 @@ public class LikeController {
     private final LikeRepository likeRepository;
     private final ComplaintRepository complaintRepository;
     private final UserRepository userRepository;
-    private final SeverityService severityService;
 
     public LikeController(
             LikeRepository likeRepository,
             ComplaintRepository complaintRepository,
-            UserRepository userRepository,
-            SeverityService severityService
+            UserRepository userRepository
     ) {
         this.likeRepository = likeRepository;
         this.complaintRepository = complaintRepository;
         this.userRepository = userRepository;
-        this.severityService = severityService;
     }
 
 
@@ -126,10 +122,6 @@ public class LikeController {
             like.setComplaint(complaint);
 
             likeRepository.save(like);
-
-            // Upvotes feed the community factor of the severity score
-            severityService.recomputeAndPublish(complaint);
-
 
             // -----------------------------------------
             // Get updated count
@@ -250,9 +242,6 @@ public class LikeController {
                     user,
                     complaint
             );
-
-            severityService.recomputeAndPublish(complaint);
-
 
             // -----------------------------------------
             // Get updated count

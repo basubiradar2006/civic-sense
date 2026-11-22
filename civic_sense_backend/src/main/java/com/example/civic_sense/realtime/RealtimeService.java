@@ -60,7 +60,21 @@ public class RealtimeService {
 
     /** Broadcast a complaint change to every connected dashboard. */
     public void publish(String type, Complaint complaint) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                && org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcast(type, complaint);
+                        }
+                    });
+            return;
+        }
+        broadcast(type, complaint);
+    }
 
+    private void broadcast(String type, Complaint complaint) {
         if (complaint == null || clients.isEmpty()) {
             return;
         }

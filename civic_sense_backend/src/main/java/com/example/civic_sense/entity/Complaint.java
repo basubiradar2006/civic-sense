@@ -1,8 +1,16 @@
 package com.example.civic_sense.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.example.civic_sense.severity.HazardEvidence;
+import com.example.civic_sense.severity.SeverityAssessment;
+import com.example.civic_sense.severity.SeverityReview;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "complaints")
@@ -11,6 +19,11 @@ public class Complaint {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    @JsonIgnore
+    private long rowVersion;
 
     // =====================================================
     // COMPLAINT DETAILS
@@ -107,6 +120,12 @@ public class Complaint {
 
     private Double trafficFactor;
 
+    // Road-class or address estimate used when survey coverage is missing.
+    private Double estimatedTrafficFactor;
+
+    @Column(length = 300)
+    private String vehicleCountSummary;
+
     private Double usageFactor;
 
     private Double communityFactor;
@@ -121,6 +140,15 @@ public class Complaint {
     private String locationContext;
 
     private LocalDateTime severityUpdatedAt;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private HazardEvidence hazardEvidence;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private SeverityAssessment severityAssessment;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<SeverityReview> severityReviews;
 
     // =====================================================
     // CITIZEN WHO CREATED THE COMPLAINT
@@ -397,6 +425,14 @@ public class Complaint {
     public Double getTrafficFactor() { return trafficFactor; }
     public void setTrafficFactor(Double trafficFactor) { this.trafficFactor = trafficFactor; }
 
+    public Double getEstimatedTrafficFactor() { return estimatedTrafficFactor; }
+    public void setEstimatedTrafficFactor(Double estimatedTrafficFactor) {
+        this.estimatedTrafficFactor = estimatedTrafficFactor;
+    }
+
+    public String getVehicleCountSummary() { return vehicleCountSummary; }
+    public void setVehicleCountSummary(String vehicleCountSummary) { this.vehicleCountSummary = vehicleCountSummary; }
+
     public Double getUsageFactor() { return usageFactor; }
     public void setUsageFactor(Double usageFactor) { this.usageFactor = usageFactor; }
 
@@ -414,6 +450,19 @@ public class Complaint {
 
     public LocalDateTime getSeverityUpdatedAt() { return severityUpdatedAt; }
     public void setSeverityUpdatedAt(LocalDateTime severityUpdatedAt) { this.severityUpdatedAt = severityUpdatedAt; }
+
+    public HazardEvidence getHazardEvidence() { return hazardEvidence; }
+    public void setHazardEvidence(HazardEvidence hazardEvidence) { this.hazardEvidence = hazardEvidence; }
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    public SeverityAssessment getSeverityAssessment() { return severityAssessment; }
+    public void setSeverityAssessment(SeverityAssessment severityAssessment) { this.severityAssessment = severityAssessment; }
+
+    @JsonIgnore
+    public List<SeverityReview> getSeverityReviews() {
+        return severityReviews == null ? List.of() : List.copyOf(severityReviews);
+    }
+    public void setSeverityReviews(List<SeverityReview> severityReviews) { this.severityReviews = severityReviews; }
 
     // =====================================================
     // LIKE COUNT

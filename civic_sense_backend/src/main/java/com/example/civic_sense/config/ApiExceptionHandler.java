@@ -1,6 +1,7 @@
 package com.example.civic_sense.config;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,6 +15,11 @@ import java.util.Map;
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleConcurrentUpdate(OptimisticLockingFailureException e) {
+        return ResponseEntity.status(409).body(Map.of("message", "The complaint changed. Reload it and try again."));
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> handleStatus(ResponseStatusException e) {

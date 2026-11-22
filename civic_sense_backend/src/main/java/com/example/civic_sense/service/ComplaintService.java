@@ -10,6 +10,7 @@ import com.example.civic_sense.severity.GeoUtils;
 import com.example.civic_sense.severity.SeverityService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -66,6 +67,7 @@ public class ComplaintService {
     // CREATE (with duplicate detection)
     // =====================================================
 
+    @Transactional
     public Complaint create(Complaint input, User citizen) {
 
         LocalDateTime now = LocalDateTime.now();
@@ -82,7 +84,14 @@ public class ComplaintService {
         input.setReportCount(1);
         input.setLastReportedAt(now);
         input.setTrafficFactor(null);
+        input.setEstimatedTrafficFactor(null);
+        input.setVehicleCountSummary(null);
         input.setUsageFactor(null);
+        input.setSeverityScore(null);
+        input.setSeverityLevel(null);
+        input.setPriority(null);
+        input.setSeverityAssessment(null);
+        input.setSeverityReviews(null);
 
         Complaint master = findDuplicate(input);
 
@@ -106,6 +115,7 @@ public class ComplaintService {
 
             master.setReportCount(master.getReportCount() + 1);
             master.setLastReportedAt(now);
+            severityService.considerDuplicateEvidence(master, input);
 
             Complaint savedMaster = severityService.recomputeAndPublish(master);
 
@@ -122,15 +132,12 @@ public class ComplaintService {
         // ---------------------------------------------
         // NEW ISSUE
         // ---------------------------------------------
-        severityService.applyQuick(input);
+        severityService.recompute(input);
 
         Complaint saved = complaintRepository.save(input);
         saved.setSubmissionResult(SUBMISSION_NEW);
 
         realtimeService.publish("CREATED", saved);
-
-        // OpenStreetMap traffic / usage analysis in the background
-        severityService.refreshAsync(saved.getId());
 
         return saved;
     }
@@ -174,6 +181,7 @@ public class ComplaintService {
     // MANUAL MERGE (officer marks a duplicate)
     // =====================================================
 
+    @Transactional
     public Complaint merge(Long duplicateId, Long masterId) {
 
         if (Objects.equals(duplicateId, masterId)) {
@@ -202,6 +210,7 @@ public class ComplaintService {
 
         master.setReportCount(master.getReportCount() + duplicate.getReportCount());
         master.setLastReportedAt(LocalDateTime.now());
+        severityService.considerDuplicateEvidence(master, duplicate);
 
         Complaint saved = severityService.recomputeAndPublish(master);
         realtimeService.publish("MERGED", saved);
@@ -296,18 +305,18 @@ public class ComplaintService {
     public int recomputeAllOpen() {
         List<Complaint> open = openMasters();
         for (Complaint c : open) {
-            Double before = c.getSeverityScore();
-
-            // Complaints created before severity analysis existed:
-            // run the full (map based) analysis once in the background
-            if (c.getSeverityUpdatedAt() == null) {
-                severityService.refreshAsync(c.getId());
-            }
+            var before = c.getSeverityAssessment();
+            String previousVehicleCount = c.getVehicleCountSummary();
 
             severityService.recompute(c);
-            Complaint saved = complaintRepository.save(c);
-
-            if (!Objects.equals(before, saved.getSeverityScore())) {
+            if (!Objects.equals(before, c.getSeverityAssessment())
+                    || !Objects.equals(previousVehicleCount, c.getVehicleCountSummary())) {
+                Complaint saved;
+                try {
+                    saved = complaintRepository.save(c);
+                } catch (org.springframework.dao.OptimisticLockingFailureException changed) {
+                    continue; // The existing periodic job will apply the newer evidence on its next pass.
+                }
                 severityService.syncChildren(saved);
                 realtimeService.publish("SEVERITY", saved);
             }

@@ -582,6 +582,26 @@ button.cp-stat:hover {
 .cp-chip-done { background: #eef1ef; color: var(--cp-muted); }
 
 /* ---------- severity breakdown ---------- */
+.cp-evidence {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin: 0 0 1rem;
+    border: 1px solid var(--cp-border, #d7dee7);
+    border-radius: 0.5rem;
+}
+.cp-evidence legend { padding: 0 0.35rem; font-weight: 600; }
+.cp-evidence .form-group, .cp-review > .form-group { display: grid; gap: 0.3rem; margin: 0; }
+.cp-evidence select, .cp-evidence input, .cp-review > label > select, .cp-review > label > textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--cp-border, #d7dee7);
+    border-radius: 0.35rem;
+    font: inherit;
+}
+.cp-review { display: grid; gap: 0.65rem; margin-top: 0.85rem; }
+.cp-review .cp-link-btn { justify-self: start; }
 
 .cp-breakdown-head {
     display: flex;

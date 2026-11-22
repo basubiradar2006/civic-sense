@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
     STATUS_FLOW,
+    assessmentStatus,
     complaintCode,
     isVideo,
     reportCount,
@@ -242,7 +243,7 @@ export function SeverityBadge({ complaint, showScore = true }) {
     return (
         <span className={`cp-sev cp-sev-${level.toLowerCase()}`}>
             <span className="cp-sev-dot" />
-            {level}
+            {level === "UNASSESSED" ? "Assessment pending" : level}
             {showScore && score != null && <b>{Math.round(score)}</b>}
         </span>
     );
@@ -267,16 +268,17 @@ export function ReportCount({ complaint, compact = false }) {
 // =====================================================
 
 const FACTORS = [
-    ["categoryFactor", "Issue type", 25],
-    ["trafficFactor", "Traffic at spot", 20],
-    ["usageFactor", "Area usage", 15],
-    ["communityFactor", "Reports & upvotes", 25],
-    ["slaFactor", "SLA pressure", 15],
+    ["hazard", "Physical hazard"],
+    ["roadImportance", "Road importance"],
+    ["publicImpact", "Public impact"],
+    ["urgency", "Urgency"],
 ];
 
 export function SeverityBreakdown({ complaint }) {
     const score = severityScore(complaint);
     const level = severityOf(complaint);
+    const assessment = complaint.severityAssessment;
+    const roadMatch = assessment?.roadMatchStatus?.toLowerCase().replaceAll("_", " ");
 
     return (
         <div className="cp-breakdown">
@@ -295,37 +297,50 @@ export function SeverityBreakdown({ complaint }) {
                     <span>{score != null ? Math.round(score) : "–"}</span>
                 </div>
                 <div>
-                    <div className="cp-breakdown-title">Severity {level}</div>
+                    <div className="cp-breakdown-title">{level === "UNASSESSED" ? "Severity pending" : `${level} priority`}</div>
                     <div className="cp-muted">
-                        {complaint?.roadType && complaint.roadType !== "unknown"
-                            ? `Road: ${complaint.roadType}`
-                            : "Road type unknown"}
+                        {assessmentStatus(assessment)}
+                        {assessment && ` · ${assessment.evidenceCompleteness}% evidence completeness`}
                     </div>
                 </div>
             </div>
 
             <div className="cp-factors">
-                {FACTORS.map(([key, label, weight]) => {
-                    const value = Number(complaint?.[key]);
-                    const pct = Number.isFinite(value) ? Math.round(value * 100) : 0;
+                {FACTORS.map(([key, label]) => {
+                    const value = assessment?.[key];
                     return (
                         <div className="cp-factor" key={key}>
                             <div className="cp-factor-label">
                                 <span>{label}</span>
                                 <span className="cp-muted">
-                                    {Number.isFinite(value) ? `${pct}%` : "–"} · w{weight}
+                                    {value == null ? "Unknown" : `${value} / 100`}
                                 </span>
                             </div>
                             <div className="cp-bar">
-                                <span style={{ width: `${pct}%` }} />
+                                <span style={{ width: `${value ?? 0}%` }} />
                             </div>
                         </div>
                     );
                 })}
             </div>
 
-            {complaint?.locationContext && (
-                <p className="cp-context">{complaint.locationContext}</p>
+            {assessment?.emergencyRule && <p className="cp-context" role="status"><strong>Emergency override</strong></p>}
+            {assessment?.explanation && <p className="cp-context">{assessment.explanation}</p>}
+            {assessment?.roadId ? (
+                <p className="cp-context">
+                    {assessment.roadName || "Unnamed road"} · {assessment.roadClass} · {assessment.roadId}
+                    {" · "}{assessment.roadConfidence?.toLowerCase()} road evidence
+                    <br />Connectivity {assessment.connectivity ?? "unknown"} · Essential access {assessment.essentialAccess ?? "unknown"}
+                    <br />Traffic exposure {assessment.trafficExposure == null ? "unknown"
+                        : `${Math.round(assessment.trafficExposure)}/100 · ${assessment.trafficSource} · ${assessment.trafficConfidence?.toLowerCase()} confidence`}
+                </p>
+            ) : roadMatch && <p className="cp-context">
+                {assessment.roadMatchStatus === "INDEX_UNAVAILABLE"
+                    ? "This server has no road data for matching."
+                    : `Road match · ${roadMatch}`}
+            </p>}
+            {complaint?.vehicleCountSummary && (
+                <p className="cp-context">{complaint.vehicleCountSummary}</p>
             )}
         </div>
     );

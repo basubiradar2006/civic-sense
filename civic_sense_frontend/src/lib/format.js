@@ -31,6 +31,14 @@ export const CATEGORIES = [
     "Illegal Dumping",
     "Public Property Damage",
     "Other",
+    "Pothole",
+    "Fallen Tree",
+    "Fallen Electric Pole",
+    "Open Manhole",
+    "Waterlogging",
+    "Drainage Blockage",
+    "Road Collapse",
+    "Road Obstruction",
 ];
 
 export function statusLabel(status) {
@@ -44,13 +52,31 @@ export function statusKey(status) {
 
 export function severityOf(complaint) {
     return String(
-        complaint?.severityLevel || complaint?.priority || "LOW"
+        complaint?.severityLevel || complaint?.priority || "UNASSESSED"
     ).toUpperCase();
 }
 
 export function severityScore(complaint) {
+    if (complaint?.severityScore == null) return null;
     const s = Number(complaint?.severityScore);
     return Number.isFinite(s) ? s : null;
+}
+
+export function bySeverity(a, b) {
+    const rank = (complaint) => {
+        const index = SEVERITY_ORDER.indexOf(severityOf(complaint));
+        return index < 0 ? 0 : SEVERITY_ORDER.length - index;
+    };
+    return rank(b) - rank(a) || (severityScore(b) ?? -1) - (severityScore(a) ?? -1);
+}
+
+export function assessmentStatus(assessment) {
+    return ({
+        URGENT_REVIEW: "Urgent verification",
+        NEEDS_REVIEW: "Needs verification",
+        PROVISIONAL: "Provisional assessment",
+        OFFICER_REVIEWED: "Officer reviewed",
+    })[assessment?.verificationStatus] || "Assessment pending";
 }
 
 export function isOpen(complaint) {

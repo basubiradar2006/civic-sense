@@ -12,6 +12,7 @@ public class NearbyComplaintResponse {
     private String mediaType;
     private String status;
     private String priority;
+    private Double severityScore;
     private String capturedAt;
 
     private Double distance;
@@ -32,6 +33,7 @@ public class NearbyComplaintResponse {
             String mediaType,
             String status,
             String priority,
+            Double severityScore,
             String capturedAt,
             Double distance,
             long likeCount,
@@ -47,6 +49,7 @@ public class NearbyComplaintResponse {
         this.mediaType = mediaType;
         this.status = status;
         this.priority = priority;
+        this.severityScore = severityScore;
         this.capturedAt = capturedAt;
         this.distance = distance;
         this.likeCount = likeCount;
@@ -91,6 +94,10 @@ public class NearbyComplaintResponse {
 
     public String getPriority() {
         return priority;
+    }
+
+    public Double getSeverityScore() {
+        return severityScore;
     }
 
     public String getCapturedAt() {

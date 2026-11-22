@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import {
-    useNavigate,
-    useParams,
-    useLocation,
-} from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { SeverityBadge, SeverityBreakdown } from "../components/ui";
+import { API_URL, api, AuthError, getStoredUser } from "../lib/api";
+import { assessmentStatus } from "../lib/format";
 
 import "../styles/ReportDetails.css";
 
@@ -12,23 +11,14 @@ function ReportDetails() {
 
     const navigate = useNavigate();
 
-    const location = useLocation();
-
-    const API_URL = import.meta.env.VITE_API_URL;
-
     // ==========================================
     // COMPLAINT
     // ==========================================
 
-    const [complaint, setComplaint] = useState(
-        location.state?.complaint || null
-    );
-
-    const [loading, setLoading] = useState(
-        !location.state?.complaint
-    );
-
-    const [error, setError] = useState("");
+    const [report, setReport] = useState(null);
+    const loading = report?.id !== id;
+    const complaint = loading ? null : report.complaint;
+    const error = loading ? null : report.error;
 
     // ==========================================
     // WORK PHOTOS
@@ -54,89 +44,23 @@ function ReportDetails() {
     // ==========================================
 
     useEffect(() => {
-        if (location.state?.complaint) {
-            setLoading(false);
-            return;
-        }
+        let active = true;
 
-        const fetchComplaint = async () => {
-            const token =
-                localStorage.getItem("token");
-
-            if (!token) {
-                navigate("/");
-                return;
-            }
-
-            try {
-                setLoading(true);
-
-                const response = await fetch(
-                    `${API_URL}/api/complaints/${id}`,
-                    {
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`,
-                        },
-                    }
-                );
-
-                if (
-                    response.status === 401 ||
-                    response.status === 403
-                ) {
-                    localStorage.removeItem(
-                        "token"
-                    );
-
-                    localStorage.removeItem(
-                        "user"
-                    );
-
-                    navigate("/");
-                    return;
+        api(`/api/complaints/${id}`)
+            .then((complaint) => {
+                if (complaint !== null && complaint?.id == null) {
+                    throw new Error("Invalid complaint response");
                 }
+                if (active) setReport({ id, complaint });
+            })
+            .catch((err) => {
+                if (!active) return;
+                if (err instanceof AuthError) navigate("/");
+                else setReport({ id, error: "Unable to load complaint details." });
+            });
 
-                if (!response.ok) {
-                    throw new Error(
-                        "Failed to load complaint details"
-                    );
-                }
-
-                const data =
-                    await response.json();
-
-                console.log(
-                    "Complaint Details:",
-                    data
-                );
-
-                setComplaint(data);
-
-            } catch (err) {
-
-                console.error(
-                    "Complaint details error:",
-                    err
-                );
-
-                setError(
-                    "Unable to load complaint details."
-                );
-
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchComplaint();
-
-    }, [
-        id,
-        API_URL,
-        location.state,
-        navigate,
-    ]);
+        return () => { active = false; };
+    }, [id, navigate]);
 
     // ==========================================
     // FETCH WORK PHOTOS
@@ -236,7 +160,6 @@ function ReportDetails() {
 
     }, [
         id,
-        API_URL,
         navigate,
     ]);
 
@@ -403,6 +326,23 @@ function ReportDetails() {
                 ================================== */}
 
                 <div className="report-details-content">
+
+                    <section className="report-severity" aria-label="Complaint severity">
+                        <div className="report-severity-heading">
+                            <strong>Severity</strong>
+                            <SeverityBadge complaint={complaint} />
+                        </div>
+                        {getStoredUser()?.role === "OFFICER" && complaint.severityAssessment ? (
+                            <SeverityBreakdown complaint={complaint} />
+                        ) : (
+                            <p>
+                                {assessmentStatus(complaint.severityAssessment)}
+                                {complaint.severityAssessment?.explanation && (
+                                    <> · {complaint.severityAssessment.explanation}</>
+                                )}
+                            </p>
+                        )}
+                    </section>
 
                     <div className="report-detail-row">
 

@@ -2,6 +2,7 @@ package com.example.civic_sense.controller;
 
 import com.example.civic_sense.dto.NearbyComplaintResponse;
 import com.example.civic_sense.entity.Complaint;
+import com.example.civic_sense.entity.Role;
 import com.example.civic_sense.entity.User;
 import com.example.civic_sense.entity.WorkPhoto;
 import com.example.civic_sense.repository.ComplaintRepository;
@@ -10,9 +11,12 @@ import com.example.civic_sense.repository.UserRepository;
 import com.example.civic_sense.repository.WorkPhotoRepository;
 import com.example.civic_sense.service.ComplaintService;
 import com.example.civic_sense.severity.SeverityService;
+import com.example.civic_sense.severity.SeverityReview;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -164,8 +168,9 @@ public class ComplaintController {
 
     // Re-run the full location analysis (OpenStreetMap)
     @PostMapping("/{id}/severity/refresh")
-    public Map<String, Object> refreshSeverity(@PathVariable Long id) {
+    public Map<String, Object> refreshSeverity(@PathVariable Long id, Principal principal) {
 
+        requireOfficer(principal);
         Complaint master = complaintService.masterOf(complaintService.get(id));
 
         severityService.refreshAsync(master.getId());
@@ -177,13 +182,26 @@ public class ComplaintController {
 
     // Re-score every open complaint
     @PostMapping("/severity/recompute")
-    public Map<String, Object> recomputeAll() {
+    public Map<String, Object> recomputeAll(Principal principal) {
 
+        requireOfficer(principal);
         int count = complaintService.recomputeAllOpen();
 
         return Map.of(
                 "message", "Severity recomputed",
                 "complaints", count);
+    }
+
+    @GetMapping("/{id}/severity/roads")
+    public SeverityReview.Options severityRoads(@PathVariable Long id, Principal principal) {
+        requireOfficer(principal);
+        return severityService.reviewOptions(complaintService.masterOf(complaintService.get(id)));
+    }
+
+    @PutMapping("/{id}/severity/review")
+    public Complaint reviewSeverity(@PathVariable Long id, @RequestBody SeverityReview.Request request, Principal principal) {
+        User officer = requireOfficer(principal);
+        return severityService.review(complaintService.masterOf(complaintService.get(id)), request, officer.getId());
     }
 
     // =====================================================
@@ -194,8 +212,9 @@ public class ComplaintController {
     @PutMapping("/{duplicateId}/merge/{masterId}")
     public Complaint mergeComplaint(
             @PathVariable Long duplicateId,
-            @PathVariable Long masterId) {
+            @PathVariable Long masterId, Principal principal) {
 
+        requireOfficer(principal);
         return complaintService.merge(duplicateId, masterId);
     }
 
@@ -334,6 +353,8 @@ public class ComplaintController {
 
                                 complaint.getPriority(),
 
+                                complaint.getSeverityScore(),
+
                                 complaint.getCapturedAt(),
 
                                 distance,
@@ -379,16 +400,18 @@ public class ComplaintController {
     // =====================================================
 
     @PutMapping("/{id}/verify")
-    public Complaint verifyComplaint(@PathVariable Long id) {
+    public Complaint verifyComplaint(@PathVariable Long id, Principal principal) {
 
+        requireOfficer(principal);
         return complaintService.verify(id);
     }
 
     @PutMapping("/{complaintId}/assign/{contractorId}")
     public Complaint assignContractor(
             @PathVariable Long complaintId,
-            @PathVariable Long contractorId) {
+            @PathVariable Long contractorId, Principal principal) {
 
+        requireOfficer(principal);
         return complaintService.assign(complaintId, contractorId);
     }
 
@@ -409,15 +432,17 @@ public class ComplaintController {
     }
 
     @PutMapping("/{id}/resolve")
-    public Complaint resolveComplaint(@PathVariable Long id) {
+    public Complaint resolveComplaint(@PathVariable Long id, Principal principal) {
 
+        requireOfficer(principal);
         return complaintService.resolve(id);
     }
 
     // Officer rejects the completed work -> back to IN_PROGRESS
     @PutMapping("/{id}/reopen")
-    public Complaint reopenComplaint(@PathVariable Long id) {
+    public Complaint reopenComplaint(@PathVariable Long id, Principal principal) {
 
+        requireOfficer(principal);
         return complaintService.reopen(id);
     }
 
@@ -426,10 +451,26 @@ public class ComplaintController {
     // =====================================================
 
     private static final Comparator<Complaint> BY_SEVERITY =
-            Comparator.comparing(
-                            (Complaint c) -> c.getSeverityScore() == null ? 0.0 : c.getSeverityScore())
+            Comparator.comparingInt(ComplaintController::priorityRank)
+                    .thenComparing(c -> c.getSeverityScore() == null ? -1.0 : c.getSeverityScore())
                     .reversed()
                     .thenComparing(Complaint::getId, Comparator.reverseOrder());
+
+    private static int priorityRank(Complaint complaint) {
+        return List.of("UNASSESSED", "LOW", "MEDIUM", "HIGH", "CRITICAL")
+                .indexOf(complaint.getPriority() == null ? "UNASSESSED" : complaint.getPriority());
+    }
+
+    private User requireOfficer(Principal principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sign in as an officer");
+        }
+        User user = currentUser(principal);
+        if (user.getRole() != Role.OFFICER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Officer access is required");
+        }
+        return user;
+    }
 
     private User currentUser(Principal principal) {
 

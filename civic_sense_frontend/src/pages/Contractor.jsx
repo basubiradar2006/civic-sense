@@ -19,12 +19,12 @@ import {
 } from "../components/ui";
 import { AuthError, api, clearSession, getStoredUser, upsertById } from "../lib/api";
 import {
+    bySeverity,
     complaintCode,
     isOpen,
     mapsUrl,
     reportCount,
     severityOf,
-    severityScore,
     shortAddress,
     slaInfo,
     statusLabel,
@@ -43,7 +43,7 @@ const TABS = {
 // In-progress first, then by severity, then by deadline
 const byUrgency = (a, b) =>
     (b.status === "IN_PROGRESS") - (a.status === "IN_PROGRESS") ||
-    (severityScore(b) ?? 0) - (severityScore(a) ?? 0) ||
+    bySeverity(a, b) ||
     new Date(a.dueAt || 8.64e15) - new Date(b.dueAt || 8.64e15);
 
 function Contractor() {
@@ -192,7 +192,7 @@ function Contractor() {
     }, [jobs]);
 
     const visible = tab === "AREA"
-        ? [...area].sort((a, b) => (severityScore(b) ?? 0) - (severityScore(a) ?? 0))
+        ? [...area].sort(bySeverity)
         : jobs.filter(TABS[tab].match).sort(byUrgency);
 
     // =====================================================

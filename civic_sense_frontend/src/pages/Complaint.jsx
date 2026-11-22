@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Complaint.css";
 import { supabase } from "../supabaseClient";
+import { CATEGORIES, assessmentStatus, severityOf } from "../lib/format";
+import HazardEvidenceFields from "../components/HazardEvidenceFields";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -15,6 +17,7 @@ function Complaint() {
     const videoChunksRef = useRef([]);
 
     const [category, setCategory] = useState("");
+    const [hazardEvidence, setHazardEvidence] = useState({});
     const [description, setDescription] = useState("");
 
     const [showCamera, setShowCamera] = useState(false);
@@ -695,6 +698,7 @@ function Complaint() {
 
             const complaint = {
                 category: category,
+                hazardEvidence,
 
                 description:
                     description,
@@ -792,6 +796,9 @@ function Complaint() {
 
             const code =
                 `CP-${String(savedComplaint.id).padStart(4, "0")}`;
+            const priority = severityOf(savedComplaint);
+            const status = assessmentStatus(savedComplaint.severityAssessment);
+            const severityMessage = priority === "UNASSESSED" ? status : `${priority} priority · ${status}`;
 
             if (savedComplaint.submissionResult === "ALREADY_REPORTED") {
                 alert(
@@ -799,11 +806,11 @@ function Complaint() {
                 );
             } else if (savedComplaint.submissionResult === "MERGED") {
                 alert(
-                    `Thanks! This issue was already reported nearby.\nYour report was added to it - ${savedComplaint.reportCount || 2} citizens have now reported it, which raises its priority.\nReference: ${code}`
+                    `Your report was added to an existing nearby issue.\nReference: ${code}\n${severityMessage}`
                 );
             } else {
                 alert(
-                    `Complaint submitted successfully!\nComplaint ID: ${code}`
+                    `Complaint submitted successfully!\nComplaint ID: ${code}\n${severityMessage}`
                 );
             }
 
@@ -887,52 +894,23 @@ function Complaint() {
 
                         <select
                             value={category}
-                            onChange={(e) =>
-                                setCategory(
-                                    e.target.value
-                                )
-                            }
+                            onChange={(e) => {
+                                setCategory(e.target.value);
+                                setHazardEvidence({});
+                            }}
                         >
 
                             <option value="">
                                 Select a category
                             </option>
 
-                            <option value="Road Damage">
-                                Road Damage
-                            </option>
-
-                            <option value="Garbage">
-                                Garbage / Waste
-                            </option>
-
-                            <option value="Street Light">
-                                Street Light
-                            </option>
-
-                            <option value="Water Leakage">
-                                Water Leakage
-                            </option>
-
-                            <option value="Drainage">
-                                Drainage Problem
-                            </option>
-
-                            <option value="Illegal Dumping">
-                                Illegal Dumping
-                            </option>
-
-                            <option value="Public Property Damage">
-                                Public Property Damage
-                            </option>
-
-                            <option value="Other">
-                                Other
-                            </option>
+                            {CATEGORIES.map((option) => <option key={option}>{option}</option>)}
 
                         </select>
 
                     </div>
+
+                    <HazardEvidenceFields category={category} value={hazardEvidence} onChange={setHazardEvidence} />
 
                     {/* =================================================
                         DESCRIPTION

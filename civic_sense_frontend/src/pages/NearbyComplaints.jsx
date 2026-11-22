@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { SeverityBadge } from "../components/ui";
+import { API_URL } from "../lib/api";
 import "../styles/NearbyComplaints.css";
 
 function NearbyComplaints() {
     const navigate = useNavigate();
-
-    const API_URL = import.meta.env.VITE_API_URL;
 
     const [complaints, setComplaints] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -545,6 +545,7 @@ function NearbyComplaints() {
                                                     "UNKNOWN"}
                                             </span>
 
+                                            <SeverityBadge complaint={complaint} />
                                         </div>
 
 

@@ -5,6 +5,7 @@ import com.example.civic_sense.dto.RegisterRequest;
 import com.example.civic_sense.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
@@ -36,6 +37,8 @@ public class AuthController {
 
             return ResponseEntity.ok(response);
 
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (RuntimeException e) {
 
             return ResponseEntity

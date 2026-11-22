@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import HazardEvidenceFields from "../components/HazardEvidenceFields";
 import {
     ActivityBell,
     AppHeader,
@@ -21,6 +22,7 @@ import { describeEvent } from "../lib/events";
 import {
     CATEGORIES,
     SEVERITY_ORDER,
+    bySeverity,
     complaintCode,
     isOpen,
     mapsUrl,
@@ -45,7 +47,7 @@ const QUEUES = {
 };
 
 const SORTS = {
-    severity: (a, b) => (severityScore(b) ?? 0) - (severityScore(a) ?? 0) || b.id - a.id,
+    severity: (a, b) => bySeverity(a, b) || b.id - a.id,
     reports: (a, b) => reportCount(b) - reportCount(a) || (severityScore(b) ?? 0) - (severityScore(a) ?? 0),
     newest: (a, b) => b.id - a.id,
     sla: (a, b) => new Date(a.dueAt || 8.64e15) - new Date(b.dueAt || 8.64e15),
@@ -233,6 +235,7 @@ function Officer() {
                 setComplaints((list) => upsertById(list, updated));
             }
             if (success) push(success, "success");
+            return true;
         } catch (err) {
             if (err instanceof AuthError) {
                 navigate("/");
@@ -274,8 +277,13 @@ function Officer() {
         run(
             `analyse-${c.id}`,
             () => api(`/api/complaints/${c.id}/severity/refresh`, { method: "POST" }),
-            "Location analysis started — the score updates live"
+            "Reassessment started"
         );
+
+    const review = (c, correction) =>
+        run(`review-${c.id}`, () => api(`/api/complaints/${c.id}/severity/review`, {
+            method: "PUT", body: correction,
+        }), "Severity review saved");
 
     const recomputeAll = () =>
         run("recompute", () => api("/api/complaints/severity/recompute", { method: "POST" }), "Severity re-scored for all open issues");
@@ -301,9 +309,8 @@ function Officer() {
                         <div className="cp-eyebrow">Operations control</div>
                         <h1>Priority queue</h1>
                         <p>
-                            Issues are ranked by a severity score built from issue type, road
-                            traffic, area usage, number of citizen reports and SLA pressure.
-                            Reports of the same problem at the same spot are merged automatically.
+                            Issues are ranked by operational priority and severity score. Review the reported hazard,
+                            affected road, public impact, and urgency before assigning work.
                         </p>
                     </div>
                     <div className="cp-hero-actions">
@@ -523,6 +530,7 @@ function Officer() {
                                     onReopen={reopen}
                                     onMerge={merge}
                                     onReanalyse={reanalyse}
+                                    onReview={review}
                                     onOpenReport={(id) => navigate(`/report/${id}`)}
                                 />
                             )}
@@ -552,11 +560,14 @@ function OfficerDetail({
     onReopen,
     onMerge,
     onReanalyse,
+    onReview,
     onOpenReport,
 }) {
     const [contractorId, setContractorId] = useState(c.contractor?.id ? String(c.contractor.id) : "");
     const [reports, setReports] = useState(null);
     const [mergeTarget, setMergeTarget] = useState("");
+    const [severityReview, setSeverityReview] = useState(null);
+    const [reviewError, setReviewError] = useState("");
     const count = reportCount(c);
     const sla = slaInfo(c);
     const map = mapsUrl(c);
@@ -659,10 +670,65 @@ function OfficerDetail({
                 <div className="cp-section-title">
                     <span>Severity analysis</span>
                     <button className="cp-link-btn" onClick={() => onReanalyse(c)} disabled={!!busy}>
-                        <Icon name="refresh" size={13} /> Re-analyse location
+                        <Icon name="refresh" size={13} /> Reassess severity
                     </button>
                 </div>
                 <SeverityBreakdown complaint={c} />
+                {severityReview ? (
+                    <form className="cp-review" onSubmit={async (event) => {
+                        event.preventDefault();
+                        const saved = await onReview(c, {
+                            evidence: severityReview.evidence,
+                            roadId: severityReview.roadId,
+                            priority: severityReview.priority,
+                            reason: severityReview.reason,
+                        });
+                        if (saved) setSeverityReview(null);
+                    }}>
+                        <HazardEvidenceFields category={c.category} value={severityReview.evidence} officer
+                            onChange={(evidence) => setSeverityReview({ ...severityReview, evidence })} />
+                        <label className="form-group">
+                            Affected road
+                            <select value={severityReview.roadId}
+                                onChange={(event) => setSeverityReview({ ...severityReview, roadId: event.target.value })}>
+                                <option value="">Use automatic road match</option>
+                                <option value="UNMATCHED">No reliable road match</option>
+                                {severityReview.candidates.map(({ road, distanceMeters }) => (
+                                    <option key={road.id} value={road.id}>
+                                        {road.name || road.roadClass} · {Math.round(distanceMeters)} m · {road.id}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="form-group">
+                            Operational priority
+                            <select value={severityReview.priority}
+                                onChange={(event) => setSeverityReview({ ...severityReview, priority: event.target.value })}>
+                                <option value="">Use calculated priority</option>
+                                {SEVERITY_ORDER.map((level) => <option key={level}>{level}</option>)}
+                            </select>
+                        </label>
+                        <label className="form-group">
+                            Reason for review
+                            <textarea required maxLength={500} value={severityReview.reason}
+                                onChange={(event) => setSeverityReview({ ...severityReview, reason: event.target.value })} />
+                        </label>
+                        <button className="cp-link-btn" type="submit" disabled={!!busy}>Save severity review</button>
+                        <button className="cp-link-btn" type="button" onClick={() => setSeverityReview(null)}>Close</button>
+                    </form>
+                ) : (
+                    <button className="cp-link-btn" disabled={!!busy} onClick={async () => {
+                        setReviewError("");
+                        try {
+                            const options = await api(`/api/complaints/${c.id}/severity/roads`);
+                            setSeverityReview({ evidence: c.hazardEvidence ?? {}, candidates: options.candidates,
+                                roadId: options.roadId ?? "", priority: options.priority ?? "", reason: "" });
+                        } catch (error) {
+                            setReviewError(error.message);
+                        }
+                    }}>Review evidence or correct the road</button>
+                )}
+                {reviewError && <p role="alert">{reviewError}</p>}
             </div>
 
             {/* ---------- merged reports ---------- */}

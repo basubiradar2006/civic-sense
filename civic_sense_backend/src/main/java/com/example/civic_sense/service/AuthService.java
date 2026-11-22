@@ -2,11 +2,14 @@ package com.example.civic_sense.service;
 
 import com.example.civic_sense.dto.LoginRequest;
 import com.example.civic_sense.dto.RegisterRequest;
+import com.example.civic_sense.entity.Role;
 import com.example.civic_sense.entity.User;
 import com.example.civic_sense.repository.UserRepository;
 import com.example.civic_sense.security.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +34,10 @@ public class AuthService {
     public Map<String, Object> register(
             RegisterRequest request
     ) {
+        if (request.getRole() == Role.OFFICER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Officer accounts must be provisioned by an administrator");
+        }
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException(
@@ -59,7 +66,7 @@ public class AuthService {
                 )
         );
 
-        user.setRole(request.getRole());
+        user.setRole(request.getRole() == null ? Role.CITIZEN : request.getRole());
 
         User savedUser =
                 userRepository.save(user);

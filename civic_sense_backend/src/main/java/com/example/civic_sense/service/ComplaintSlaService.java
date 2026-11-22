@@ -59,14 +59,14 @@ public class ComplaintSlaService {
             case "Garbage" ->
                     2;
 
-            case "Drainage" ->
+            case "Drainage", "Drainage Blockage", "Waterlogging" ->
                     3;
 
             case "Illegal Dumping" ->
                     3;
 
             // Road work requires more time
-            case "Road Damage" ->
+            case "Road Damage", "Pothole" ->
                     10;
 
             // Medium
@@ -75,6 +75,9 @@ public class ComplaintSlaService {
 
             case "Public Property Damage" ->
                     7;
+
+            case "Open Manhole", "Fallen Tree", "Fallen Electric Pole", "Road Collapse", "Road Obstruction" ->
+                    1;
 
             // Low
             case "Other" ->

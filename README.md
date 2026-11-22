@@ -9,7 +9,7 @@
 | **Backend** | Spring Boot 4 · Java 17 · Spring Security + JWT · Spring Data JPA · PostgreSQL (Supabase) |
 | **Frontend** | React 19 · Vite · React Router 7 · Supabase Storage (media) |
 | **Real-time** | Server-Sent Events (`/api/stream`) — no extra infrastructure |
-| **Maps / context** | OpenStreetMap Overpass API (road class + nearby schools, hospitals, markets) |
+| **Maps / context** | Locally indexed OpenStreetMap roads and precomputed network access |
 | **Deploy** | Docker multi-stage image (`Dockerfile`, `docker-compose.yml`, see `DOCKER.md`) |
 
 ---
@@ -69,21 +69,21 @@ flowchart LR
     subgraph SpringBoot[Spring Boot API]
         API[REST controllers]
         CS[ComplaintService<br/>lifecycle + duplicate merge]
-        SS[SeverityService<br/>+ SeverityCalculator]
-        LC[LocationContextService]
+        SS[SeverityService<br/>+ SeverityRules]
+        LC[RoadIndex]
         RT[RealtimeService<br/>SSE broadcaster]
         SCH[SeverityScheduler<br/>every 10 min]
     end
 
     DB[(PostgreSQL)]
     ST[(Supabase Storage<br/>photos / videos)]
-    OSM[(OpenStreetMap<br/>Overpass API)]
+    OSM[(Belagavi road index<br/>Offline OSM import)]
 
     C & O & K -- REST + JWT --> API
     C & O & K -- EventSource /api/stream --> RT
     C & K -- upload media --> ST
     API --> CS --> SS --> LC
-    LC -- road class, POIs --> OSM
+    LC -- periodic local reload --> OSM
     CS & SS --> DB
     CS & SS --> RT
     SCH --> CS
@@ -91,66 +91,48 @@ flowchart LR
 
 **Request flow for a new report**
 
-1. Citizen uploads media to Supabase Storage and `POST /api/complaints` with category, GPS, address, media URL.
+1. Citizen uploads media to Supabase Storage and sends `POST /api/complaints` with category, optional hazard evidence, GPS, address, and media URL.
 2. `ComplaintService.create` looks for an **open complaint of the same category within ~35 m**.
    - Found → saved as a *child report* (`mergedIntoId`), master `reportCount + 1`, severity re-scored.
-   - Not found → saved as a new master with a *quick* severity score (no network).
+   - Not found → saved as a new master with a local severity assessment.
 3. A `CREATED` / `MERGED` event is pushed to every open dashboard.
-4. In the background the **full location analysis** (OpenStreetMap) runs and pushes a `SEVERITY` event with the refined score.
+4. Officers can review reported evidence, choose a nearby road, and adjust operational priority. The correction requires a reason and publishes a `SEVERITY` event.
 
 ---
 
 ## 3. Severity analysis
 
-Every master complaint gets a **score from 0 to 100** and a level. The model is a weighted sum of five
-explainable factors, each between 0 and 1 (`severity/SeverityCalculator.java`, pure Java, unit-tested).
+The category selects deterministic hazard rules. Citizens can provide measurements or a visual assessment. The app scores the evidence entered by the citizen or reviewed by an officer.
 
-| Factor | Weight | Source | How it is measured |
-|---|---|---|---|
-| **Issue type** | 25 % | category | Water leakage 0.90 · Road damage 0.80 · Drainage 0.75 · Garbage / Illegal dumping 0.60 · Street light 0.55 · Public property 0.45 · Other 0.30 |
-| **Traffic at the spot** | 20 % | OpenStreetMap `highway=*` within 40 m, fallback: address words | motorway/trunk 1.0 · primary 0.9 · secondary 0.75 · tertiary 0.6 · residential 0.35 · footpath 0.2. Address fallback: "highway" 0.95, "main road/avenue/bridge" 0.8, "junction/circle/chowk" 0.75, "road" 0.55, "lane/street" 0.4 |
-| **Area usage** | 15 % | OSM amenities within 300 m + database | schools, hospitals, clinics, markets, bus/rail stations, colleges, places of worship; plus how many *other* issues were reported within 500 m in the last 90 days (a busy, heavily used area) |
-| **Community** | 25 % | duplicate reports + upvotes | `ln(1 + (reports − 1) + 0.5 × likes) / ln(16)` → 1 report = 0, 5 reports ≈ 0.58, 16+ = 1.0 |
-| **SLA pressure** | 15 % | `createdAt`, `dueAt` | fraction of the allowed resolution time already used; overdue = 1.0, closed = 0 |
+| Factor | Default weight | Evidence |
+|---|---:|---|
+| Physical hazard | 40% | Category-specific dimensions, condition, position, exposure, or damage |
+| Road importance | 25% | OSM classification (35%), graph connectivity (25%), mapped essential access (25%), traffic exposure (15%) |
+| Public impact | 20% | Blockage (45%), exposure (30%), access disruption (25%) |
+| Urgency | 15% | Immediate danger, injuries, reported deterioration, poor visibility, wiring, or disrupted emergency access |
 
-```
-score = 100 × (0.25·type + 0.20·traffic + 0.15·usage + 0.25·community + 0.15·sla)
+Scores range from 0 to 100. When a value is unknown, the calculation uses the relative weights of the available values. The response includes evidence completeness and verification status. The defaults are Medium at 25, High at 50, and Critical at 80. Emergency evidence overrides the calculated priority with Critical. Uncertain emergency evidence is flagged for prompt review with at least High priority. The existing deadline escalation retains its High floor for open issues. Tune weights, priority thresholds, and pothole dimensions under `civic.severity.*` in `application.properties`.
 
-level:  ≥ 70 CRITICAL   ≥ 50 HIGH   ≥ 30 MEDIUM   else LOW
-        (an escalated / SLA-breached complaint is never below HIGH)
-```
+When a recognized category has no measured hazard evidence, the app uses a provisional category estimate in the score and leaves physical hazard and evidence completeness unchanged. A report categorized as **Other** can stay pending if no usable evidence or road match is available.
+The existing scheduler reassesses open issues, and officers can reassess or review a single issue. Reviews persist the officer, reason, evidence, road correction, operational priority, and timestamp on the complaint. Explicit corrections survive automatic reassessment. The existing complaint workflow handles responsibility and contractor assignment.
 
-**Examples** (from `SeverityCalculatorTest`):
+### Belagavi road setup
 
-| Scenario | Score | Level |
-|---|---|---|
-| Pothole on a primary road near a school, 1 report, just reported | 45.5 | MEDIUM |
-| Same pothole, 6 citizens reported it | 61.7 | HIGH |
-| Same pothole, 8 reports + 4 upvotes, 2 days past SLA | 81.3 | CRITICAL |
-| Garbage in a quiet residential lane, 1 report | 25.0 | LOW |
+From the repository root, import once using Python 3. The generated local files are ignored by Git.
 
-**When the score is recalculated**
-
-- on creation (quick, no network) and again in the background with OpenStreetMap data,
-- when a duplicate is merged or an upvote is added / removed,
-- on every status change (closed issues lose SLA pressure),
-- every 10 minutes for all open issues (SLA pressure grows with time) — the same job **escalates** overdue complaints,
-- on demand: *Re-score all* / *Re-analyse location* buttons on the officer dashboard.
-
-All factors are stored on the complaint (`categoryFactor`, `trafficFactor`, `usageFactor`, `communityFactor`,
-`slaFactor`, `roadType`, `locationContext`) so the officer UI can **explain** every score.
-The legacy `priority` column is kept in sync with the severity level.
-
-**Config** (`application.properties`)
-
-```properties
-civic.severity.osm.enabled=true            # false = offline mode, address keywords only
-civic.severity.osm.url=https://overpass-api.de/api/interpreter
-civic.severity.recompute-interval-ms=600000
+```powershell
+python scripts/import_belagavi_roads.py --download --output .local-data/belagavi-roads.tsv --save-osm .local-data/belagavi.osm
 ```
 
-> **Tuning:** weights and thresholds are constants in `SeverityCalculator`. Change them there and update the test.
-> Later, traffic data from Google Roads / city sensors can be plugged into `LocationContextService.full()`.
+The backend finds this index automatically when launched from the repository root or the backend directory. Use `--osm .local-data/belagavi.osm` in place of `--download` to rebuild offline. A deployment can schedule the importer periodically. It replaces the index atomically, and the backend checks for an updated file every five minutes. For a different path, set `CIVIC_SEVERITY_ROAD_INDEX`. In Docker, mount the data directory read-only and use the container path.
+
+The importer builds a graph from shared OSM road nodes and identifies links whose closure would disconnect part of the mapped graph. Essential access uses mapped entrances and roads entering mapped facility boundaries. Nearby amenities alone do not contribute. Estimates depend on the study-area boundary and OSM coverage. The graph models undirected connectivity and does not evaluate turn restrictions, one-way routing, emergency routing policies, or actual detour time.
+
+GPS matching uses local geometry and a grid index. An ambiguous match or missing GPS leaves road importance unknown until a usable match is available. This path works with standard PostgreSQL. Production PostGIS state was not inspected or modified. [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) · [Supabase PostGIS setup](https://supabase.com/docs/guides/database/extensions/postgis)
+
+### Optional verified vehicle surveys
+
+No traffic file is required. In its absence, traffic exposure is marked as estimated from the OSM road class and the app displays no vehicle count. To supply an existing verified dataset, set `CIVIC_SEVERITY_VEHICLE_COUNT_CSV` to a local file URI such as `file:/C:/traffic/counts.csv`. The header is `start_lat,start_lon,end_lat,end_lon,period,vehicles,source`. A `YYYY-MM` row is a full monthly total, while a `YYYY` row is AADT in vehicles per day. Use WGS84 endpoints and unquoted values. The existing survey pipeline uses the last completed month and caches the lookup per road and month.
 
 ---
 
@@ -162,7 +144,7 @@ COMPLETED/RESOLVED) with the **same category** within the merge radius.
 - Merge radius = `max(35 m, phone GPS accuracy)` capped at 75 m (`civic.dedup.*` properties).
 - Candidate search: bounding-box SQL query, then exact Haversine distance; the nearest candidate wins.
 - The new report is stored as a **child** (`mergedIntoId = master.id`) — the citizen still sees it in *My reports*.
-- The master's `reportCount` goes up and its severity is re-scored (community factor).
+- The master's `reportCount` goes up. New evidence of an emergency can raise the master's priority.
 - Every status / contractor / severity change on the master is **mirrored onto all children**, so each reporter follows the repair.
 - The same citizen reporting the same spot twice does **not** inflate the count (`submissionResult = ALREADY_REPORTED`).
 - Officers only ever see masters. The detail pane lists every reporter with their own description and evidence.
@@ -197,7 +179,7 @@ All endpoints except `/api/auth/*` expect `Authorization: Bearer <JWT>`.
 
 | Method | Path | Who | Description |
 |---|---|---|---|
-| POST | `/api/auth/register` | public | `{name, email, phone?, password, role}` |
+| POST | `/api/auth/register` | public | `{name, email, phone?, password, role}`; officer accounts require administrator provisioning |
 | POST | `/api/auth/login` | public | `{email: "<email or phone>", password}` → `{token, userId, name, email, phone, role}` |
 | GET | `/api/stream?token=` | all | Server-Sent Events stream |
 | POST | `/api/complaints` | citizen | create (auto-merge duplicates) |
@@ -215,7 +197,9 @@ All endpoints except `/api/auth/*` expect `Authorization: Bearer <JWT>`.
 | PUT | `/api/complaints/{id}/resolve` | officer | COMPLETED → RESOLVED |
 | PUT | `/api/complaints/{id}/reopen` | officer | COMPLETED → IN_PROGRESS |
 | PUT | `/api/complaints/{dupId}/merge/{masterId}` | officer | manual duplicate merge |
-| POST | `/api/complaints/{id}/severity/refresh` | officer | re-run OpenStreetMap analysis (async) |
+| GET | `/api/complaints/{id}/severity/roads` | officer | nearby local road candidates and active correction |
+| PUT | `/api/complaints/{id}/severity/review` | officer | replace evidence or correct the road and priority, with reason |
+| POST | `/api/complaints/{id}/severity/refresh` | officer | reassess using the latest local road index (async) |
 | POST | `/api/complaints/severity/recompute` | officer | re-score all open complaints |
 | GET/POST | `/api/complaints/{id}/work-photos` | contractor | proof-of-work photos |
 | POST/DELETE | `/api/complaints/{id}/like` | citizen | upvote / remove upvote |
@@ -231,6 +215,7 @@ Business-rule errors return `400 {"message": "..."}` (`ApiExceptionHandler`).
 Java 17+, Node 20+, a PostgreSQL database (local Docker or Supabase), a Supabase project with a public storage bucket named `evidence`.
 
 ### Backend
+
 ```bash
 cd civic_sense_backend
 # DB settings come from application.properties or env vars:
@@ -238,9 +223,9 @@ export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/civic_sense
 export SPRING_DATASOURCE_USERNAME=civic
 export SPRING_DATASOURCE_PASSWORD=civic_sense
 ./mvnw spring-boot:run          # http://localhost:8085
-./mvnw test                     # includes SeverityCalculatorTest
+./mvnw test                     # uses an isolated in-memory test database
 ```
-Hibernate `ddl-auto=update` adds the new columns (`merged_into_id`, `report_count`, `severity_*`, `users.phone`, …) automatically. Existing complaints are scored by the scheduler ~30 s after start-up.
+Hibernate `ddl-auto=update` adds the complaint evidence, assessment, and audit JSON columns and the row version with default zero. Existing open complaints are reassessed by the scheduler after start-up. Use an authorized database administrator to provision officer accounts.
 
 ### Frontend
 ```bash
@@ -257,7 +242,7 @@ npm run dev                     # http://localhost:5173
 ```bash
 docker compose up --build       # http://localhost:8085
 ```
-Set `TZ` (default `Asia/Dhaka`) so stored timestamps match the city, and `CIVIC_SEVERITY_OSM_ENABLED=false` if the server has no internet access. See `DOCKER.md`.
+Set `TZ=Asia/Kolkata` for Belagavi so stored timestamps match the city. See `DOCKER.md`.
 
 ---
 
@@ -268,7 +253,7 @@ civic-sense/
 ├── civic_sense_backend/src/main/java/com/example/civic_sense/
 │   ├── controller/      Auth, Complaint, Like, User, Frontend (SPA routes)
 │   ├── service/         AuthService, ComplaintService (lifecycle + merge), ComplaintSlaService
-│   ├── severity/        SeverityCalculator (model), SeverityService, LocationContextService (OSM), GeoUtils
+│   ├── severity/        SeverityRules, SeverityService, RoadIndex, VehicleCount, GeoUtils
 │   ├── realtime/        RealtimeService (SSE), StreamController, SeverityScheduler
 │   ├── entity/ dto/ repository/ security/ config/
 │   └── ../test/…/severity/SeverityCalculatorTest.java

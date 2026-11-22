@@ -20,6 +20,7 @@ import { AuthError, api, clearSession, getStoredUser, upsertById } from "../lib/
 import { describeEvent } from "../lib/events";
 import {
     CATEGORIES,
+    assessmentStatus,
     complaintCode,
     isOpen,
     reportCount,
@@ -125,6 +126,7 @@ function Citizen() {
                         severityScore: c.severityScore,
                         severityLevel: c.severityLevel,
                         priority: c.priority,
+                        severityAssessment: c.severityAssessment,
                         contractor: c.contractor,
                     };
                 });
@@ -318,7 +320,7 @@ function Citizen() {
                                     mine={view === "MINE"}
                                     flash={flashIds.includes(c.id)}
                                     onMedia={setMedia}
-                                    onOpen={() => navigate(`/report/${c.id}`, { state: { complaint: c } })}
+                                    onOpen={() => navigate(`/report/${c.id}`)}
                                 />
                             ))}
                         </div>
@@ -355,6 +357,11 @@ function CitizenCard({ complaint: c, mine, flash, onMedia, onOpen }) {
                     <h3>{c.category || "Issue"}</h3>
                     <StatusBadge status={c.status} />
                 </div>
+
+                {mine && <p className="cp-context">
+                    <strong>{assessmentStatus(c.severityAssessment)}</strong>
+                    {c.severityAssessment?.explanation && <> · {c.severityAssessment.explanation}</>}
+                </p>}
 
                 <div className="cp-card-loc">
                     <Icon name="pin" size={14} />

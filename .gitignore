@@ -8,3 +8,5 @@ db-data/
 .DS_Store
 .idea/
 *.log
+/.local-data/
+/scripts/__pycache__/
